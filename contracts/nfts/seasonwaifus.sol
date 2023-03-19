@@ -11,12 +11,14 @@ contract IsekaiSeason is ERC1155, Ownable {
     IERC20 public paymentToken;
     uint256 public tokenPrice;
 
+    // for oracle use
     event MintRequest(address indexed user, uint256 nonce);
+    // to update user dapp
     event MintProcessed(address indexed user, uint256 tokenId, uint256 nonce);
 
     constructor(IERC20 _paymentToken, uint256 _tokenPrice) ERC1155("https://api.example.com/token/{id}.json") {
-        paymentToken = _paymentToken;
-        tokenPrice = _tokenPrice;
+        paymentToken = _paymentToken; // $ISEKAI token
+        tokenPrice = _tokenPrice; // Price in $ISEKAI wei
         _lastProcessedNonce = 0;
     }
 
@@ -30,6 +32,8 @@ contract IsekaiSeason is ERC1155, Ownable {
         emit MintRequest(_msgSender(), nonce);
     }
 
+    // This will be called by our Oracle
+    // upon receiving the MintRequest event
     function mint(address user, uint256 id, uint256 amount, uint256 nonce, bytes memory data) external onlyOwner {
         require(!_processedNonces[nonce], "Already processed");
         _processedNonces[nonce] = true;
@@ -37,6 +41,7 @@ contract IsekaiSeason is ERC1155, Ownable {
         emit MintProcessed(user, id, nonce);
     }
 
+    // To bootstrap the oracle and to prevent double mints
     function lastProcessedNonce() public view returns (uint256) {
         return _lastProcessedNonce;
     }
