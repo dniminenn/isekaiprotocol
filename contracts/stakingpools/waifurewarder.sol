@@ -52,9 +52,7 @@ contract WaifuRewarder is ERC1155Holder, ReentrancyGuard {
         endTime = startTime + _rewardDuration;
         /* this is an array with 24 entries, however many season waifus we have
            and their corresponding weights
-           for erc721 unique waifus, we will assume tokenIds are the last two
-           1500, 3000 represent the two unique waifus
-           [1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 20, 20, 20, 20, 100, 100, 100, 1500, 1500, 1500, 3000]
+           [1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 20, 20, 20, 20, 100, 100, 100, 1500, 1500]
            this way rewardWeights[tokenId] will match to it's weight 
         */
         rewardWeights = _rewardWeights;
