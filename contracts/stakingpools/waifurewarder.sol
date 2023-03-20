@@ -50,15 +50,17 @@ contract WaifuRewarder is ERC1155Holder, ReentrancyGuard {
         rewardDuration = _rewardDuration;
         startTime = block.timestamp;
         endTime = startTime + _rewardDuration;
-        // this is an array with 24 entries, however many season waifus we have
-        // and their corresponding weights
-        // for erc721 unique waifus, we will assume tokenIds are the last two
-        // 1500, 3000 represent the two unique waifus
-        // [1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 20, 20, 20, 20, 100, 100, 100, 1500, 1500, 1500, 3000]
-        // this way rewardWeights[tokenId] will match to it's weight
+        /* this is an array with 24 entries, however many season waifus we have
+           and their corresponding weights
+           for erc721 unique waifus, we will assume tokenIds are the last two
+           1500, 3000 represent the two unique waifus
+           [1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 20, 20, 20, 20, 100, 100, 100, 1500, 1500, 1500, 3000]
+           this way rewardWeights[tokenId] will match to it's weight 
+        */
         rewardWeights = _rewardWeights;
     }
 
+    // need to rework these to aray uint256[][] array
     function stake(uint256 tokenId, uint256 amount) external nonReentrant {
         require(block.timestamp < endTime, "Staking period has ended");
         require(
@@ -76,17 +78,20 @@ contract WaifuRewarder is ERC1155Holder, ReentrancyGuard {
         );
         totalStakedTokens[tokenId] += amount; // update the totalStakedTokens mapping
         _stakedBalances[msg.sender][tokenId] += amount; // map [user][tokenid] to amount
+        // update rewards after transfering
         _updateRewards(msg.sender, tokenId);
         emit Staked(msg.sender, tokenId, amount);
     }
 
+    // need to rework these to aray uint256[][] array
     function unstake(uint256 tokenId, uint256 amount) external nonReentrant {
         require(
             waifuSeasonal.balanceOf(address(this), tokenId) >= amount,
             "Not enough tokens staked"
         );
-        claimReward(tokenId);
         require(amount > 0, "Amount should be greater than 0");
+        claimReward(tokenId);
+        // update rewards before transfering
         _updateRewards(msg.sender, tokenId);
         waifuSeasonal.safeTransferFrom(
             address(this),
@@ -96,11 +101,11 @@ contract WaifuRewarder is ERC1155Holder, ReentrancyGuard {
             ""
         );
         _stakedBalances[msg.sender][tokenId] -= amount;
-        // shouldnt this call _updateRewards?
         totalStakedTokens[tokenId] -= amount;
         emit Unstaked(msg.sender, tokenId, amount);
     }
 
+    // need to rework these to aray uint256[][] array
     function claimReward(uint256 tokenId) public nonReentrant {
         _updateRewards(msg.sender, tokenId);
         uint256 reward = _userRewards[msg.sender][tokenId];
@@ -110,6 +115,7 @@ contract WaifuRewarder is ERC1155Holder, ReentrancyGuard {
         emit RewardClaimed(msg.sender, tokenId, reward);
     }
 
+    // need to rework these to aray uint256[][] array
     function _updateRewards(address user, uint256 tokenId) private {
         uint256 accumulatedRewardPerToken = _getAccumulatedRewardPerToken(
             tokenId
@@ -123,6 +129,7 @@ contract WaifuRewarder is ERC1155Holder, ReentrancyGuard {
         _lastClaim[user][tokenId] = accumulatedRewardPerToken;
     }
 
+    // need to rework these to aray uint256[][] array
     function viewClaimableReward(address user, uint256 tokenId)
         external
         view
@@ -140,6 +147,7 @@ contract WaifuRewarder is ERC1155Holder, ReentrancyGuard {
         return claimableReward;
     }
 
+    // this seems to make sense
     function _getAccumulatedRewardPerToken(uint256 tokenId)
         private
         view
