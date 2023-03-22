@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: unlicensed
 /// @author Isekai Dev
-pragma solidity ^0.8.0 .0;
+pragma solidity ^0.8.0.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -46,7 +46,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
         _beforeTokenTransfer(sender, recipient, amount);
 
         uint256 taxAmount = 0;
-        if (!_excludedFromTax[sender] && !_excludedFromTax[recipient]) {
+        if (!_excludedFromTax[sender] || !_excludedFromTax[recipient]) {
             taxAmount = (amount * taxPercentage) / 100;
         }
         uint256 netAmount = amount - taxAmount;
