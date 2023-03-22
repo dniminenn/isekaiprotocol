@@ -35,7 +35,6 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
     mapping(address => UserInfo) public userInfo;
 
     // The total amount of staked tokens
-
     uint256 public totalStaked;
     // The reward accumulation rate
     uint256 public rewardAccumulationRate;
