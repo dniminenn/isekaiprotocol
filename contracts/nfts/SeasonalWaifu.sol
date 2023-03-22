@@ -3,7 +3,6 @@
 pragma solidity ^0.8.0 .0;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -19,7 +18,6 @@ contract SeasonalWaifu is ERC1155, Ownable {
 
     uint256 private _lastProcessedNonce;
     mapping(uint256 => bool) private _processedNonces;
-    IERC20 public paymentToken;
     uint256 public tokenPrice;
     string private baseURI;
 
