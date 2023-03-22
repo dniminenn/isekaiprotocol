@@ -13,18 +13,18 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * @title WaifuRewarder
  * @dev A smart contract for staking ERC1155 tokens and earning ERC20 rewards.
  */
-contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
+contract seasonalWaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
     IERC20 public isekai;
     IERC1155 public isekaiIOU;
 
-    // The reward amount per block
-    // This is the total amount of reward divided by
-    // how many blocks we intend a season to run for
-    uint256 private constant REWARD_PER_BLOCK = 100;
+    // The reward amount per block, the "emissions rate"
+    // defined and constructor and FIXED for the duration
+    // of the season
+    uint256 public rewardPerBlock;
 
     // The season this contract is deployed for
     // Mapped to the isekaiIOU token ID
-    uint256 private constant SEASON = 1;
+    uint256 public season;
 
     // The user info for each staker
     struct UserInfo {
@@ -43,15 +43,38 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
     // The block number of the last update
     uint256 public lastUpdateBlock;
 
+    // The total reward divided by the reward per block
+    uint256 public endBlock;
+
     /**
-     * @dev Constructor function
-     * @param _isekai The address of the ERC20 reward token
-     * @param _isekaiIOU The address of the ERC1155 nft token
+     * @dev Constructor function for the IsekaiIOUStaking contract.
+     * @param _isekai The address of the Isekai ERC20 token contract.
+     * @param _isekaiIOU The address of the IsekaiIOU ERC1155 token contract.
+     * The function initializes the `isekai` and `isekaiIOU` variables with the provided contract addresses.
+     * The `lastUpdateBlock` variable is set to the current block number.
+     * The `endBlock` variable is calculated based on the `initialRewardAmount` and `rewardPerBlock` variables,
+     * and represents the block number at which the staking rewards will end.
+     * Finally, the contract calls the `transferFrom` function of the Isekai contract to transfer the `initialRewardAmount`
+     * from the `msg.sender` to the address of the IsekaiIOUStaking contract.
      */
-    constructor(address _isekai, address _isekaiIOU) {
+    constructor(
+        address _isekai,
+        address _isekaiIOU,
+        uint256 _season,
+        uint256 initialRewardAmount,
+        uint256 _rewardPerBlock
+    ) {
+        season = _season;
         isekai = IERC20(_isekai);
         isekaiIOU = IERC1155(_isekaiIOU);
         lastUpdateBlock = block.number;
+        rewardPerBlock = _rewardPerBlock;
+
+        uint256 blocksToRun = initialRewardAmount / _rewardPerBlock;
+        // subtract one block for buffer
+        endBlock = (lastUpdateBlock + blocksToRun) - 1;
+        // transfer reward from season from deployer wallet
+        isekai.transferFrom(msg.sender, address(this), initialRewardAmount);
     }
 
     /**
@@ -64,7 +87,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
         isekaiIOU.safeTransferFrom(
             msg.sender,
             address(this),
-            SEASON,
+            season,
             amount,
             ""
         );
@@ -93,7 +116,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
         isekaiIOU.safeTransferFrom(
             address(this),
             msg.sender,
-            SEASON,
+            season,
             amount,
             ""
         );
@@ -131,8 +154,12 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
         if (blocksSinceLastUpdate == 0 || totalStaked == 0) {
             return;
         }
+        // Stop generating new rewards after the end block
+        if (block.number >= endBlock) {
+            blocksSinceLastUpdate = endBlock - lastUpdateBlock;
+        }
 
-        uint256 newRewards = blocksSinceLastUpdate * REWARD_PER_BLOCK;
+        uint256 newRewards = blocksSinceLastUpdate * rewardPerBlock;
         rewardAccumulationRate += newRewards / totalStaked;
         lastUpdateBlock = block.number;
     }
@@ -151,8 +178,13 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
         uint256 pendingReward = 0;
 
         if (totalStaked > 0) {
-            uint256 blocksSinceLastUpdate = block.number - user.lastActionBlock;
-            uint256 newRewards = blocksSinceLastUpdate * REWARD_PER_BLOCK;
+            uint256 blocksSinceLastUpdate;
+            if (block.number <= endBlock) {
+                blocksSinceLastUpdate = block.number - user.lastActionBlock;
+            } else {
+                blocksSinceLastUpdate = endBlock - user.lastActionBlock;
+            }
+            uint256 newRewards = blocksSinceLastUpdate * rewardPerBlock;
             uint256 newAccumulationRate = rewardAccumulationRate +
                 newRewards /
                 totalStaked;
