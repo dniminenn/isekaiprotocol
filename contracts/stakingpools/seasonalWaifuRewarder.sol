@@ -61,7 +61,13 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
     function stake(uint256 amount) external nonReentrant {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
-        isekaiIOU.safeTransferFrom(msg.sender, address(this), 0, amount, "");
+        isekaiIOU.safeTransferFrom(
+            msg.sender,
+            address(this),
+            SEASON,
+            amount,
+            ""
+        );
 
         if (user.staked > 0) {
             uint256 pendingReward = getPendingReward(msg.sender);
@@ -84,7 +90,13 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
         require(user.staked >= amount, "Not enough staked tokens");
-        isekaiIOU.safeTransferFrom(address(this), msg.sender, 0, amount, "");
+        isekaiIOU.safeTransferFrom(
+            address(this),
+            msg.sender,
+            SEASON,
+            amount,
+            ""
+        );
 
         uint256 pendingReward = getPendingReward(msg.sender);
         if (pendingReward > 0) {
