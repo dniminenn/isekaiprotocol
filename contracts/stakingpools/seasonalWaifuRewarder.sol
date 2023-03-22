@@ -36,6 +36,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
 
     // The total amount of staked tokens
     uint256 public totalStaked;
+
     // The reward accumulation rate
     uint256 public rewardAccumulationRate;
 
@@ -59,24 +60,20 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
      */
     function stake(uint256 amount) external nonReentrant {
         updateRewardAccumulationRate();
-        require(isekaiIOU.balanceOf(msg.sender, SEASON) > 0);
         UserInfo storage user = userInfo[msg.sender];
-        isekaiIOU.safeTransferFrom(
-            msg.sender,
-            address(this),
-            SEASON,
-            amount,
-            ""
-        );
+        isekaiIOU.safeTransferFrom(msg.sender, address(this), 0, amount, "");
 
         if (user.staked > 0) {
-            user.rewardDebt += getPendingReward(msg.sender);
+            uint256 pendingReward = getPendingReward(msg.sender);
+            if (pendingReward > 0) {
+                isekai.transfer(msg.sender, pendingReward);
+            }
         }
 
         user.staked += amount;
         totalStaked += amount;
         user.lastActionBlock = block.number;
-        user.rewardDebt += amount * rewardAccumulationRate;
+        user.rewardDebt = user.staked * rewardAccumulationRate;
     }
 
     /**
@@ -87,20 +84,17 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
         require(user.staked >= amount, "Not enough staked tokens");
-        isekaiIOU.safeTransferFrom(
-            address(this),
-            msg.sender,
-            SEASON,
-            amount,
-            ""
-        );
+        isekaiIOU.safeTransferFrom(address(this), msg.sender, 0, amount, "");
 
-        user.rewardDebt += getPendingReward(msg.sender);
+        uint256 pendingReward = getPendingReward(msg.sender);
+        if (pendingReward > 0) {
+            isekai.transfer(msg.sender, pendingReward);
+        }
 
         user.staked -= amount;
         totalStaked -= amount;
         user.lastActionBlock = block.number;
-        user.rewardDebt -= amount * rewardAccumulationRate;
+        user.rewardDebt = user.staked * rewardAccumulationRate;
     }
 
     /**
