@@ -20,6 +20,7 @@ contract SeasonalWaifu is ERC1155, Ownable {
     mapping(uint256 => bool) private _processedNonces;
     uint256 public tokenPrice;
     string private baseURI;
+    address private _oracleAddress;
 
     // for oracle use
     event MintRequest(address indexed user, uint256 nonce);
@@ -30,6 +31,18 @@ contract SeasonalWaifu is ERC1155, Ownable {
         tokenPrice = _tokenPrice; // Price MATIC wei
         _lastProcessedNonce = 0;
         baseURI = _baseURI;
+    }
+
+    modifier onlyOracle() {
+        require(
+            msg.sender == _oracleAddress,
+            "Only the oracle can call this function."
+        );
+        _;
+    }
+
+    function setOracleAddress(address oracle) public onlyOwner {
+        _oracleAddress = oracle;
     }
 
     /**
@@ -64,7 +77,7 @@ contract SeasonalWaifu is ERC1155, Ownable {
         uint256 amount,
         uint256 nonce,
         bytes memory data
-    ) external onlyOwner {
+    ) external onlyOracle {
         require(!_processedNonces[nonce], "Already processed");
         require(id <= 11); // 12 varieties
         _processedNonces[nonce] = true;
