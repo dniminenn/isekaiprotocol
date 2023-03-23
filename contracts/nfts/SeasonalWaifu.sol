@@ -66,6 +66,7 @@ contract SeasonalWaifu is ERC1155, Ownable {
         bytes memory data
     ) external onlyOwner {
         require(!_processedNonces[nonce], "Already processed");
+        require(id <= 11); // 12 varieties
         _processedNonces[nonce] = true;
         _mint(user, id, amount, data);
         emit MintProcessed(user, id, nonce);
