@@ -56,10 +56,6 @@ contract UniqueWaifu is ERC721A, Ownable {
         return 1;
     }
 
-    function setLegendary(uint256 id) internal {
-        _isLegendary[id] = true;
-    }
-
     /**
      * @dev Returns the status of a specific legendary NFT.
      * @param id The ID of the NFT being queried.
@@ -82,7 +78,9 @@ contract UniqueWaifu is ERC721A, Ownable {
     function processMint(address _to, bool isLegendary) public onlyOracle {
         _safeMint(_to, 1);
         uint256 currentid = totalSupply() + 1;
-        if (isLegendary) setLegendary(currentid);
+        if (isLegendary) {
+            _isLegendary[currentid] = true;
+        }
     }
 
     // cash out
