@@ -7,6 +7,13 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./erc721a/ERC721A.sol";
 
+/**
+ * @title UniqueWaifu
+ * @dev ERC721A-compatible contract for minting and managing unique waifu NFTs.
+ * @author Isekai Dev
+ * @notice This contract allows users to mint unique waifu NFTs and provides functions for managing the collection.
+ * @notice The contract also implements functions for interfacing with OpenSea.
+ */
 contract UniqueWaifu is ERC721A, Ownable {
     string private _baseUrl = "https://assets.isekai.online/legends/";
     // used by opensea contractURI() to populate collection overview
@@ -36,6 +43,10 @@ contract UniqueWaifu is ERC721A, Ownable {
         _;
     }
 
+    /**
+     * @dev Sets the address of the oracle that can call restricted functions.
+     * @param oracle The address of the oracle.
+     */
     function setOracleAddress(address oracle) public onlyOwner {
         _oracleAddress = oracle;
     }
@@ -49,6 +60,11 @@ contract UniqueWaifu is ERC721A, Ownable {
         _isLegendary[id] = true;
     }
 
+    /**
+     * @dev Returns the status of a specific legendary NFT.
+     * @param id The ID of the NFT being queried.
+     * @return true if the NFT is legendary, false otherwise.
+     */
     function getLegendary(uint256 id) public view returns (bool) {
         return _isLegendary[id];
     }
@@ -58,7 +74,11 @@ contract UniqueWaifu is ERC721A, Ownable {
         _amountClaim = _amount;
     }
 
-    // mint single nft to wallet
+    /**
+     * @dev Mints a single unique waifu NFT to the specified wallet address.
+     * @param _to The address of the wallet to receive the NFT.
+     * @param isLegendary Whether the NFT should be a legendary one or not.
+     */
     function processMint(address _to, bool isLegendary) public onlyOracle {
         _safeMint(_to, 1);
         uint256 currentid = totalSupply() + 1;
@@ -70,23 +90,35 @@ contract UniqueWaifu is ERC721A, Ownable {
         _to.transfer(_amount);
     }
 
-    // public mint
+    /**
+     * @dev Allows a user to request the minting of a unique waifu NFT by paying the current mint price.
+     */
     function requestMint() public payable {
         require(msg.value == _amountClaim, "Incorrect price");
         // implement Event for requesting oracle
     }
 
-    // used by tokenURI to return metadata uri
+    /**
+     * @dev Returns the base URL for the location of the NFT metadata.
+     * @return The base URL for the location of the NFT metadata.
+     */
     function baseTokenURI() public view returns (string memory) {
         return _baseUrl;
     }
 
-    // use this to change metadata location, ie. from http to ipfs upon mint out
+    /**
+     * @dev Updates the base URL for the location of the NFT metadata.
+     * @param newBase The new base URL.
+     */
     function updateBase(string memory newBase) public onlyOwner {
         _baseUrl = newBase;
     }
 
-    // return location of nft metadata
+    /**
+     * @dev Returns the location of the metadata for a specific NFT.
+     * @param _tokenId The ID of the NFT being queried.
+     * @return The location of the metadata for the specified NFT.
+     */
     function tokenURI(uint256 _tokenId)
         public
         view
@@ -103,7 +135,11 @@ contract UniqueWaifu is ERC721A, Ownable {
             );
     }
 
-    // used by opensea to preload collection info
+    /**
+     * @dev Returns the location of the JSON file that provides information about the collection.
+     * Used by OpenSea
+     * @return The location of the JSON file that provides information about the collection.
+     */
     function contractURI() public view returns (string memory) {
         return _contractUrl;
     }
