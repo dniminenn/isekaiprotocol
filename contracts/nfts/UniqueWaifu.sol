@@ -25,6 +25,14 @@ contract UniqueWaifu is ERC721A, Ownable {
 
     mapping(uint256 => bool) private _isLegendary;
 
+    uint256 private _lastProcessedNonce;
+    mapping(uint256 => bool) private _processedNonces;
+
+    // for oracle use
+    event MintRequest(address indexed user, uint256 nonce);
+    // to update user dapp
+    event MintProcessed(address indexed user, uint256 nonce);
+
     constructor(
         string memory baseUrl,
         string memory contractUrl,
@@ -75,12 +83,15 @@ contract UniqueWaifu is ERC721A, Ownable {
      * @param _to The address of the wallet to receive the NFT.
      * @param isLegendary Whether the NFT should be a legendary one or not.
      */
-    function processMint(address _to, bool isLegendary) public onlyOracle {
+    function processMint(address _to, bool isLegendary, uint256 nonce) public onlyOracle {
+        require(!_processedNonces[nonce], "Already processed");
         _safeMint(_to, 1);
         uint256 currentid = totalSupply() + 1;
         if (isLegendary) {
             _isLegendary[currentid] = true;
         }
+        _processedNonces[nonce] = true;
+        emit MintProcessed(_to, nonce);
     }
 
     // cash out
@@ -92,8 +103,11 @@ contract UniqueWaifu is ERC721A, Ownable {
      * @dev Allows a user to request the minting of a unique waifu NFT by paying the current mint price.
      */
     function requestMint() public payable {
+        uint256 nonce = _lastProcessedNonce + 1;
+        require(!_processedNonces[nonce], "Already processed");
         require(msg.value == _amountClaim, "Incorrect price");
-        // implement Event for requesting oracle
+        _lastProcessedNonce = nonce;
+        emit MintRequest(msg.sender, nonce);
     }
 
     /**
