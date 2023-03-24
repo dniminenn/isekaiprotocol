@@ -79,7 +79,8 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
         endBlock = (lastUpdateBlock + blocksToRun) - 1;
 
         // Transfer initial token balance directly from the deployer to the contract
-        isekai.transfer(address(this), initialTokenBalance);
+        // isekai.transfer(address(this), initialTokenBalance);
+        // it looks like we must approve then send in the tokens
     }
 
     /**
