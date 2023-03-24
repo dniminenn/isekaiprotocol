@@ -103,7 +103,10 @@ contract UniqueWaifu is ERC721A, Ownable {
     }
 
     // cash out
-    function withdrawOwner(address payable _to, uint256 _amount) public onlyOwner {
+    function withdrawOwner(address payable _to, uint256 _amount)
+        public
+        onlyOwner
+    {
         _to.transfer(_amount);
     }
 
@@ -184,5 +187,23 @@ contract UniqueWaifu is ERC721A, Ownable {
 
     function setRoyaltyPercentage(uint256 percent) public onlyOwner {
         _royaltyPercentage = percent;
+    }
+
+    /**
+     * Override isApprovedForAll to auto-approve OS's proxy contract
+     */
+    function isApprovedForAll(address _address, address _operator)
+        public
+        view
+        override
+        returns (bool isOperator)
+    {
+        // if OpenSea's ERC721 Proxy Address is detected, auto-return true
+        if (_operator == address(0x58807baD0B376efc12F5AD86aAc70E78ed67deaE)) {
+            return true;
+        }
+
+        // otherwise, use the default ERC721.isApprovedForAll()
+        return super.isApprovedForAll(_address, _operator);
     }
 }

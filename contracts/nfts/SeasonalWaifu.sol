@@ -252,4 +252,21 @@ contract SeasonalWaifu is ERC1155, Ownable {
     {
         _to.transfer(_amount);
     }
+
+    /**
+     * Override isApprovedForAll to auto-approve OS's proxy contract
+     */
+    function isApprovedForAll(address _address, address _operator)
+        public
+        view
+        override
+        returns (bool isOperator)
+    {
+        // if OpenSea's ERC1155 Proxy Address is detected, auto-return true
+        if (_operator == address(0x207Fa8Df3a17D96Ca7EA4f2893fcdCb78a304101)) {
+            return true;
+        }
+        // otherwise, use the default ERC1155.isApprovedForAll()
+        return super.isApprovedForAll(_address, _operator);
+    }
 }
