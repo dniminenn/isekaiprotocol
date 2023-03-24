@@ -77,7 +77,11 @@ def handle_mint_request(event):
     """
     user = event["args"]["user"]
     nonce = event["args"]["nonce"]
-    token_id = determine_token_id(generate_random_number())
+    crystals = event["args"]["crystals"]
+    if crystals > 0:
+        token_id = determine_token_id_crystal(generate_random_number())
+    else:
+        token_id = determine_token_id(generate_random_number())
 
     txn = contract.functions.mint(user, token_id, nonce, b"").buildTransaction({
         "from": account.address,
@@ -88,6 +92,7 @@ def handle_mint_request(event):
     signed_txn = w3.eth.account.signTransaction(txn, private_key)
     txn_hash = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
     txn_receipt = w3.eth.waitForTransactionReceipt(txn_hash)
+    print(f"txn:{txn_receipt}\n")
 
 def process_missed_events():
     last_processed_nonce = contract.functions.lastProcessedNonce().call()
@@ -101,11 +106,15 @@ def process_missed_events():
 def main():
     while True:
         try:
+            print("Isekai Oracle running, looking at past events")
             process_missed_events()
             event_filter = contract.events.MintRequest.createFilter(fromBlock="latest")
             while True:
+                print("Treating incoming events")
                 events = event_filter.get_new_entries()
+                print("Done. Now filtering new events")
                 for event in events:
+                    print("Received event, processing...\n")
                     handle_mint_request(event)
                 time.sleep(5)
         except Exception as e:
