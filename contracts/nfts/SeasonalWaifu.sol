@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: unlicensed
 // @author Isekai Dev
+
 pragma solidity ^0.8.0 .0;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "contracts/tokens/ICrystalsToken.sol";
 
 /**
@@ -24,17 +27,31 @@ contract SeasonalWaifu is ERC1155, Ownable {
     string private baseURI;
     address private _oracleAddress;
     ICrystalsToken private crystals;
+    bool autobuy;
+
+    IUniswapV2Router02 public uniswapRouter;
+    // Our DEX
+    address public isekaiAddress;
+    address private uniswapRouterAddress;
 
     // for oracle use
     event MintRequest(address indexed user, uint256 nonce, uint256 crystals);
     // to update user dapp
     event MintProcessed(address indexed user, uint256 tokenId, uint256 nonce);
 
-    constructor(uint256 _tokenPrice, string memory _baseURI, address _crystals) ERC1155("") {
+    constructor(
+        uint256 _tokenPrice,
+        string memory _baseURI,
+        address _crystals,
+        address _uniswapRouterAddress,
+        address _isekaiAddress
+    ) ERC1155("") {
         tokenPrice = _tokenPrice; // Price MATIC wei
         _lastProcessedNonce = 0;
         baseURI = _baseURI;
         crystals = ICrystalsToken(_crystals);
+        uniswapRouter = IUniswapV2Router02(_uniswapRouterAddress);
+        isekaiAddress = _isekaiAddress;
     }
 
     modifier onlyOracle() {
@@ -62,6 +79,22 @@ contract SeasonalWaifu is ERC1155, Ownable {
         require(!_processedNonces[nonce], "Already processed");
         _lastProcessedNonce = nonce;
         emit MintRequest(msg.sender, nonce, 0);
+
+        if (autobuy) {
+            address[] memory path = new address[](2);
+            path[0] = uniswapRouter.WETH();
+            path[1] = isekaiAddress;
+            uniswapRouter.swapExactETHForTokens{value: msg.value}(
+                0, // Accept any amount of tokens
+                path,
+                address(this), // Recipient of the tokens
+                block.timestamp + 300 // Deadline (5 minutes)
+            );
+        }
+    }
+
+    function setAutoBuy(bool _autobuy) public onlyOwner {
+        autobuy = _autobuy;
     }
 
     /**
@@ -86,7 +119,6 @@ contract SeasonalWaifu is ERC1155, Ownable {
      * @dev Mints a new token and assigns it to the specified user.
      * @param user The address of the user to whom the token should be assigned.
      * @param id The ID of the token to mint.
-     * @param amount The amount of tokens to mint.
      * @param nonce The nonce of the request to mint a new token.
      * @param data Additional data to include in the minting transaction.
      * @dev Throws an error if the nonce has already been processed.
@@ -95,7 +127,6 @@ contract SeasonalWaifu is ERC1155, Ownable {
     function mint(
         address user,
         uint256 id,
-        uint256 amount,
         uint256 nonce,
         bytes memory data
     ) external onlyOracle {
