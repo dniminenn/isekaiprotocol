@@ -247,7 +247,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
     {
         // Define the range of token IDs based on your contract's requirements
         uint256 minTokenId = 0;
-        uint256 maxTokenId = 11;
+        uint256 maxTokenId = _seasonMultipliers[season].length - 1;
 
         uint256[] memory _tokenIds = new uint256[](maxTokenId - minTokenId + 1);
         uint256[] memory _amounts = new uint256[](maxTokenId - minTokenId + 1);
