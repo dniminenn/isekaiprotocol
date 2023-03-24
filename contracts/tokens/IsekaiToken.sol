@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: unlicensed
+// SPDX-License-Identifier: UNLICENSED
 /// @author Isekai Dev
-pragma solidity ^0.8.0.0;
+
+pragma solidity ^0.8.0 .0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -55,6 +56,15 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
             super._transfer(sender, taxDestination, taxAmount);
         }
         super._transfer(sender, recipient, netAmount);
+    }
+
+    /**
+     * @dev Allows the contract owner to mint new tokens.
+     * @param to The address receiving the newly minted tokens.
+     * @param amount The number of tokens to mint.
+     */
+    function mint(address to, uint256 amount) public onlyOwner {
+        _mint(to, amount);
     }
 
     /**

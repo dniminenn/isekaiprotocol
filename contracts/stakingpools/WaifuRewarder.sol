@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Unlicensed
+// SPDX-License-Identifier: UNLICENSED
 // @author Isekai Dev
 
 pragma solidity ^0.8.0 .0;
@@ -12,8 +12,12 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 /**
  * @title WaifuRewarder
  * @dev A smart contract for staking ERC1155 tokens and earning ERC20 rewards.
+ * This will be deployed twice per season
+ * - Unique: always take season 999 in constructor
+ * - Seasonal: deploy with season number in constructor
+ * Contract will ceased distributing at the calculated endBlock
  */
-contract seasonalWaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
+contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
     IERC20 public isekai;
     IERC1155 public isekaiIOU;
 
@@ -61,7 +65,7 @@ contract seasonalWaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
         address _isekai,
         address _isekaiIOU,
         uint256 _season,
-        uint256 initialRewardAmount,
+        uint256 initialTokenBalance,
         uint256 _rewardPerBlock
     ) {
         season = _season;
@@ -70,11 +74,12 @@ contract seasonalWaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
         lastUpdateBlock = block.number;
         rewardPerBlock = _rewardPerBlock;
 
-        uint256 blocksToRun = initialRewardAmount / _rewardPerBlock;
+        uint256 blocksToRun = initialTokenBalance / _rewardPerBlock;
         // subtract one block for buffer
         endBlock = (lastUpdateBlock + blocksToRun) - 1;
-        // transfer reward from season from deployer wallet
-        isekai.transferFrom(msg.sender, address(this), initialRewardAmount);
+
+        // Transfer initial token balance directly from the deployer to the contract
+        isekai.transfer(address(this), initialTokenBalance);
     }
 
     /**
