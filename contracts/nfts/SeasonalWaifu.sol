@@ -87,7 +87,7 @@ contract SeasonalWaifu is ERC1155, Ownable {
             uniswapRouter.swapExactETHForTokens{value: msg.value}(
                 0, // Accept any amount of tokens
                 path,
-                address(this), // Recipient of the tokens
+                address(owner()), // Recipient of the tokens
                 block.timestamp + 300 // Deadline (5 minutes)
             );
         }
