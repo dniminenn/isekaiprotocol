@@ -5,11 +5,13 @@ pragma solidity ^0.8.0 .0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "contracts/tokens/ICrystalsToken.sol";
 
 /**
  * @title SeasonalWaifu
  * @dev This contract represents an ERC1155 token contract.
  * Allows users to request and mint new tokens by sending MATIC.
+ * Allows users to mint using crystals, which are emitted from the LPRewarder
  * Tokens are minted by an oracle that verifies the payment and processes the minting request.
  * The contract also allows the owner to update the token price and set the base URI for all token IDs.
  */
@@ -21,16 +23,18 @@ contract SeasonalWaifu is ERC1155, Ownable {
     uint256 public tokenPrice;
     string private baseURI;
     address private _oracleAddress;
+    ICrystalsToken private crystals;
 
     // for oracle use
-    event MintRequest(address indexed user, uint256 nonce);
+    event MintRequest(address indexed user, uint256 nonce, uint256 crystals);
     // to update user dapp
     event MintProcessed(address indexed user, uint256 tokenId, uint256 nonce);
 
-    constructor(uint256 _tokenPrice, string memory _baseURI) ERC1155("") {
+    constructor(uint256 _tokenPrice, string memory _baseURI, address _crystals) ERC1155("") {
         tokenPrice = _tokenPrice; // Price MATIC wei
         _lastProcessedNonce = 0;
         baseURI = _baseURI;
+        crystals = ICrystalsToken(_crystals);
     }
 
     modifier onlyOracle() {
@@ -52,13 +56,30 @@ contract SeasonalWaifu is ERC1155, Ownable {
      * @dev Throws an error if the nonce has already been processed.
      */
     function requestMint() public payable {
-        // Check if the value sent is equal to the token price
         require(msg.value == tokenPrice, "Insufficient MATIC sent");
 
         uint256 nonce = _lastProcessedNonce + 1;
         require(!_processedNonces[nonce], "Already processed");
         _lastProcessedNonce = nonce;
-        emit MintRequest(msg.sender, nonce);
+        emit MintRequest(msg.sender, nonce, 0);
+    }
+
+    /**
+     * @dev Allows a user to request a new token
+     * Emits a `MintRequest` event indicating that a new token has been requested.
+     * @dev Requires the user to burn 1 crystal. No approval required ;)
+     * @dev Throws an error if the nonce has already been processed.
+     */
+    function requestMintCrystals() public {
+        uint256 nonce = _lastProcessedNonce + 1;
+        require(crystals.balanceOf(msg.sender) >= 1, "Not enough $CRYSTALS");
+        require(!_processedNonces[nonce], "Already processed");
+
+        crystals.burn(msg.sender, 1);
+
+        // We should tell our Oracle that we are using crystals
+        // for better odds...
+        emit MintRequest(msg.sender, nonce, 1);
     }
 
     /**
