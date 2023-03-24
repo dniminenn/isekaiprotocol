@@ -34,7 +34,7 @@ contract LPRewarder is Ownable, ReentrancyGuard {
      * the initial reward per block.
      * @param _lpToken Address of the LP token contract.
      * @param _crystals Address of the Crystals token contract.
-     * @param _rewardPerBlock Initial reward per block.
+     * @param _rewardPerBlock Initial reward per block in wei units
      */
     constructor(
         address _lpToken,

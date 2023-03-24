@@ -35,9 +35,23 @@ contract SeasonalWaifu is ERC1155, Ownable {
     address private uniswapRouterAddress;
 
     // for oracle use
-    event MintRequest(address indexed user, uint256 nonce, uint256 crystals);
+    event MintRequest(
+        address indexed user,
+        uint256 nonce,
+        uint256 crystals,
+        uint256 amount
+    );
     // to update user dapp
-    event MintProcessed(address indexed user, uint256 tokenId, uint256 nonce);
+    event MintProcessed(
+        address indexed user,
+        uint256[] tokenIds,
+        uint256 nonce
+    );
+
+    uint256 constant VARIETIES = 12;
+    uint256 constant ETH = 0;
+    uint256 constant CRYSTALS = 1;
+    uint256 foildiscount;
 
     constructor(
         uint256 _tokenPrice,
@@ -52,6 +66,7 @@ contract SeasonalWaifu is ERC1155, Ownable {
         crystals = ICrystalsToken(_crystals);
         uniswapRouter = IUniswapV2Router02(_uniswapRouterAddress);
         isekaiAddress = _isekaiAddress;
+        foildiscount = 0;
     }
 
     modifier onlyOracle() {
@@ -68,17 +83,24 @@ contract SeasonalWaifu is ERC1155, Ownable {
 
     /**
      * @dev Allows a user to request a new token
+     * @param foilpack Set true if user wants to buy a foilpack
      * Emits a `MintRequest` event indicating that a new token has been requested.
      * @dev Requires the user to send an amount of MATIC equal to the current token price.
      * @dev Throws an error if the nonce has already been processed.
      */
-    function requestMint() public payable {
-        require(msg.value == tokenPrice, "Insufficient MATIC sent");
+    function requestMint(bool foilpack) public payable {
+        uint256 price = tokenPrice;
+        uint256 amount = 1;
+        if (foilpack) { 
+            price *= (1 - foildiscount);
+            amount = 10;
+        }
+        require(msg.value == price, "Insufficient MATIC sent");
 
         uint256 nonce = _lastProcessedNonce + 1;
         require(!_processedNonces[nonce], "Already processed");
         _lastProcessedNonce = nonce;
-        emit MintRequest(msg.sender, nonce, 0);
+        emit MintRequest(msg.sender, nonce, ETH, amount);
 
         if (autobuy) {
             address[] memory path = new address[](2);
@@ -93,48 +115,70 @@ contract SeasonalWaifu is ERC1155, Ownable {
         }
     }
 
+    /**
+     * @dev Allow owner to disable autobuy functionality
+     * @param _autobuy true or false
+     */
     function setAutoBuy(bool _autobuy) public onlyOwner {
         autobuy = _autobuy;
     }
 
     /**
-     * @dev Allows a user to request a new token
-     * Emits a `MintRequest` event indicating that a new token has been requested.
-     * @dev Requires the user to burn 1 crystal. No approval required ;)
-     * @dev Throws an error if the nonce has already been processed.
+     * @dev Allows owner to set new DEX for autobuy
+     * @param _router New router address
      */
-    function requestMintCrystals() public {
-        uint256 nonce = _lastProcessedNonce + 1;
-        require(crystals.balanceOf(msg.sender) >= 1, "Not enough $CRYSTALS");
-        require(!_processedNonces[nonce], "Already processed");
-
-        crystals.burn(msg.sender, 1);
-
-        // We should tell our Oracle that we are using crystals
-        // for better odds...
-        emit MintRequest(msg.sender, nonce, 1);
+    function setDEXRouter(address _router) public onlyOwner {
+        uniswapRouter = IUniswapV2Router02(_router);
     }
 
     /**
-     * @dev Mints a new token and assigns it to the specified user.
+     * @dev Allows a user to request news token
+     * Emits a `MintRequest` event indicating that a new token has been requested.
+     * @dev Requires the user to burn amount X crystal. No approval required ;)
+     * @dev Throws an error if the nonce has already been processed.
+     */
+    function requestMintCrystals(uint256 amount) public {
+        uint256 nonce = _lastProcessedNonce + 1;
+        uint256 crystalprice = amount*(10**18); // lets burn whole tokens lol
+        require(crystals.balanceOf(msg.sender) >= crystalprice, "Not enough $CRYSTALS");
+        require(!_processedNonces[nonce], "Already processed");
+
+        crystals.burn(msg.sender, crystalprice);
+
+        // We should tell our Oracle that we are using crystals
+        // for better odds...
+        emit MintRequest(msg.sender, nonce, CRYSTALS, amount);
+    }
+
+    /**
+     * @dev Allows owner to set discount for foil packs
+     *
+     */
+    function setFoilpackDiscount(uint256 _discount) public onlyOwner {
+        foildiscount = _discount;
+    }
+
+    /**
+     * @dev Mints either 1 or 10 new token and assigns it to the specified user.
      * @param user The address of the user to whom the token should be assigned.
-     * @param id The ID of the token to mint.
+     * @param ids[] Array with the IDs of the token to mint.
      * @param nonce The nonce of the request to mint a new token.
-     * @param data Additional data to include in the minting transaction.
      * @dev Throws an error if the nonce has already been processed.
      * Emits a `MintProcessed` event indicating that a new token has been minted and assigned to the specified user.
      */
     function mint(
         address user,
-        uint256 id,
-        uint256 nonce,
-        bytes memory data
+        uint256[] memory ids,
+        uint256 nonce
     ) external onlyOracle {
         require(!_processedNonces[nonce], "Already processed");
-        require(id <= 11); // 12 varieties
+        require(ids.length == 10 || ids.length == 1, "Foil pack: bad amount");
+        for (uint256 i = 0; i < ids.length; i++) {
+            require(ids[i] < VARIETIES, "ID out of range");
+            _mint(user, ids[i], 1, "");
+        }
         _processedNonces[nonce] = true;
-        _mint(user, id, 1, data); // always one... add foil pak functionality!
-        emit MintProcessed(user, id, nonce);
+        emit MintProcessed(user, ids, nonce);
     }
 
     /**
