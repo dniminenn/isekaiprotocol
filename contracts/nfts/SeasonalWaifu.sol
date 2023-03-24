@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "contracts/tokens/ICrystalsToken.sol";
 
@@ -18,7 +19,7 @@ import "contracts/tokens/ICrystalsToken.sol";
  * Tokens are minted by an oracle that verifies the payment and processes the minting request.
  * The contract also allows the owner to update the token price and set the base URI for all token IDs.
  */
-contract SeasonalWaifu is ERC1155, Ownable {
+contract SeasonalWaifu is ERC1155, Ownable, ReentrancyGuard {
     using Strings for uint256;
 
     uint256 private _lastProcessedNonce;
@@ -98,11 +99,11 @@ contract SeasonalWaifu is ERC1155, Ownable {
      * @dev Requires the user to send an amount of MATIC equal to the current token price.
      * @dev Throws an error if the nonce has already been processed.
      */
-    function requestMint(bool foilpack) public payable {
+    function requestMint(bool foilpack) public payable nonReentrant {
         uint256 price = tokenPrice;
         uint256 amount = 1;
         if (foilpack) {
-            price *= (1 - foildiscount);
+            price *= ((100 - foildiscount) / 100);
             amount = 10;
         }
         require(msg.value == price, "Insufficient MATIC sent");
@@ -147,7 +148,7 @@ contract SeasonalWaifu is ERC1155, Ownable {
      * @dev Requires the user to burn amount X crystal. No approval required ;)
      * @dev Throws an error if the nonce has already been processed.
      */
-    function requestMintCrystals(uint256 amount) public {
+    function requestMintCrystals(uint256 amount) public nonReentrant {
         uint256 nonce = _lastProcessedNonce + 1;
         uint256 crystalprice = amount * (10**18); // lets burn whole tokens lol
         require(
