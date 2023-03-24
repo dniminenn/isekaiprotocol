@@ -28,6 +28,8 @@ contract UniqueWaifu is ERC721A, Ownable {
     uint256 private _lastProcessedNonce;
     mapping(uint256 => bool) private _processedNonces;
 
+    uint256 private _royaltyPercentage = 5;
+
     // for oracle use
     event MintRequest(address indexed user, uint256 nonce);
     // to update user dapp
@@ -36,11 +38,13 @@ contract UniqueWaifu is ERC721A, Ownable {
     constructor(
         string memory baseUrl,
         string memory contractUrl,
-        uint256 price
+        uint256 price,
+        uint256 royaltyPercentage
     ) ERC721A("Isekai Legends", "ISEKAI") {
         _baseUrl = baseUrl;
         _contractUrl = contractUrl;
         _amountClaim = price;
+        _royaltyPercentage = royaltyPercentage;
     }
 
     modifier onlyOracle() {
@@ -83,7 +87,11 @@ contract UniqueWaifu is ERC721A, Ownable {
      * @param _to The address of the wallet to receive the NFT.
      * @param isLegendary Whether the NFT should be a legendary one or not.
      */
-    function processMint(address _to, bool isLegendary, uint256 nonce) public onlyOracle {
+    function processMint(
+        address _to,
+        bool isLegendary,
+        uint256 nonce
+    ) public onlyOracle {
         require(!_processedNonces[nonce], "Already processed");
         _safeMint(_to, 1);
         uint256 currentid = totalSupply() + 1;
@@ -154,5 +162,27 @@ contract UniqueWaifu is ERC721A, Ownable {
      */
     function contractURI() public view returns (string memory) {
         return _contractUrl;
+    }
+
+    /**
+     * @dev EIP2985 royaltyInfo for every marketplace except OpenSea (lol..)
+     * Used by NOT OpenSea
+     * @param tokenId just there to conform to standard
+     * @param salePrice populated by marketplace contract
+     * @return receiver the address of the owner
+     * @return royaltyAmount the amount of royalties
+     */
+    function royaltyInfo(uint256 tokenId, uint256 salePrice)
+        external
+        view
+        returns (address receiver, uint256 royaltyAmount)
+    {
+        receiver = address(owner());
+        royaltyAmount = salePrice * (_royaltyPercentage / 100);
+        return (receiver, royaltyAmount);
+    }
+
+    function setRoyaltyPercentage(uint256 percent) public onlyOwner {
+        _royaltyPercentage = percent;
     }
 }

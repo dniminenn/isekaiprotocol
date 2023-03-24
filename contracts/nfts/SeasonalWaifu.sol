@@ -53,12 +53,18 @@ contract SeasonalWaifu is ERC1155, Ownable {
     uint256 constant CRYSTALS = 1;
     uint256 foildiscount;
 
+    uint256 royaltyPercentage;
+
+    string public name = "Isekai Legends Season";
+    string public symbol = "ISEKAI";
+
     constructor(
         uint256 _tokenPrice,
         string memory _baseURI,
         address _crystals,
         address _uniswapRouterAddress,
-        address _isekaiAddress
+        address _isekaiAddress,
+        uint256 season
     ) ERC1155("") {
         tokenPrice = _tokenPrice; // Price MATIC wei
         _lastProcessedNonce = 0;
@@ -67,6 +73,10 @@ contract SeasonalWaifu is ERC1155, Ownable {
         uniswapRouter = IUniswapV2Router02(_uniswapRouterAddress);
         isekaiAddress = _isekaiAddress;
         foildiscount = 0;
+        royaltyPercentage = 5;
+        // Returns Isekai Legends Season 0
+        // and that will be the name displayed on block explorer
+        name = string(abi.encodePacked(name, " ", season.toString()));
     }
 
     modifier onlyOracle() {
@@ -172,7 +182,6 @@ contract SeasonalWaifu is ERC1155, Ownable {
         uint256 nonce
     ) external onlyOracle {
         require(!_processedNonces[nonce], "Already processed");
-        require(ids.length == 10 || ids.length == 1, "Foil pack: bad amount");
         for (uint256 i = 0; i < ids.length; i++) {
             require(ids[i] < VARIETIES, "ID out of range");
             _mint(user, ids[i], 1, "");
@@ -218,5 +227,19 @@ contract SeasonalWaifu is ERC1155, Ownable {
         returns (string memory)
     {
         return string(abi.encodePacked(baseURI, tokenId.toString(), ".json"));
+    }
+
+        function royaltyInfo(uint256 tokenId, uint256 salePrice)
+        external
+        view
+        returns (address receiver, uint256 royaltyAmount)
+    {
+        receiver = address(owner());
+        royaltyAmount = salePrice * (royaltyPercentage / 100);
+        return (receiver, royaltyAmount);
+    }
+
+    function setRoyaltyPercentage(uint256 percent) public onlyOwner {
+        royaltyPercentage = percent;
     }
 }
