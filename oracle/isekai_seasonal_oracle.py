@@ -18,12 +18,15 @@ w3 = Web3(Web3.HTTPProvider(provider_url))
 w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 account = w3.eth.account.privateKeyToAccount(private_key)
 
-contract = w3.eth.contract(address=Web3.toChecksumAddress(contract_address), abi=contract_abi)
+contract = w3.eth.contract(address=Web3.toChecksumAddress(
+    contract_address), abi=contract_abi)
+
 
 def generate_random_number():
     """Generates a random number between 0 and 10000."""
     import random
     return random.randint(0, 10000)
+
 
 def determine_token_id(random_number):
     """
@@ -43,6 +46,7 @@ def determine_token_id(random_number):
         if random_number < current_sum:
             return i + 1
     return 1
+
 
 def determine_token_id_crystal(random_number):
     """
@@ -66,6 +70,7 @@ def determine_token_id_crystal(random_number):
             return i + 1
     return 1
 
+
 def handle_mint_request(event):
     """
     Handles a MintRequest event by generating a random number to determine the
@@ -78,14 +83,16 @@ def handle_mint_request(event):
     user = event["args"]["user"]
     nonce = event["args"]["nonce"]
     crystals = event["args"]["crystals"]
-    if crystals > 0:
-        token_id = determine_token_id_crystal(generate_random_number())
-    else:
-        token_id = determine_token_id(generate_random_number())
+    amount = event["args"]["amount"]
+    token_id_list = []
 
-    txn = contract.functions.mint(user, token_id, nonce, b"").buildTransaction({
+    token_id_list = [determine_token_id_crystal(generate_random_number(
+    )) if crystals == 1 else determine_token_id(generate_random_number()) for _ in range(amount)]
+
+    txn = contract.functions.mint(user, token_id_list, nonce, b"").buildTransaction({
         "from": account.address,
-        "gas": 200000,
+        # we can tweak this after deploying
+        "gas": 300000,
         "gasPrice": w3.eth.gasPrice,
         "nonce": w3.eth.getTransactionCount(account.address),
     })
@@ -93,6 +100,7 @@ def handle_mint_request(event):
     txn_hash = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
     txn_receipt = w3.eth.waitForTransactionReceipt(txn_hash)
     print(f"txn:{txn_receipt}\n")
+
 
 def process_missed_events():
     last_processed_nonce = contract.functions.lastProcessedNonce().call()
@@ -103,12 +111,14 @@ def process_missed_events():
     for event in missed_events:
         handle_mint_request(event)
 
+
 def main():
     while True:
         try:
             print("Isekai Oracle running, looking at past events")
             process_missed_events()
-            event_filter = contract.events.MintRequest.createFilter(fromBlock="latest")
+            event_filter = contract.events.MintRequest.createFilter(
+                fromBlock="latest")
             while True:
                 print("Treating incoming events")
                 events = event_filter.get_new_entries()
@@ -120,6 +130,7 @@ def main():
         except Exception as e:
             print(f"Error occurred: {e}")
             time.sleep(10)
+
 
 if __name__ == "__main__":
     main()

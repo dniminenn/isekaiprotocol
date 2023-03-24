@@ -39,17 +39,6 @@ def fetch_metadata(token_id):
     return metadata
 
 
-def generate_random_number():
-    """
-    Generates a random integer between 0 and 10000.
-
-    Returns:
-        int: A randomly generated integer.
-    """
-    import random
-    return random.randint(0, 10000)
-
-
 def determine_is_legendary(token_id):
     """
     Determines whether a given token is a legendary based on its metadata.
@@ -80,7 +69,7 @@ def handle_mint_request(event):
 
     txn = contract.functions.processMint(requester, isLegendary).buildTransaction({
         "from": account.address,
-        "gas": 200000,
+        "gas": 300000,
         "gasPrice": w3.eth.gasPrice,
         "nonce": w3.eth.getTransactionCount(account.address),
     })
