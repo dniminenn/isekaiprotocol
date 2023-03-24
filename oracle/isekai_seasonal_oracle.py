@@ -79,7 +79,7 @@ def handle_mint_request(event):
     nonce = event["args"]["nonce"]
     token_id = determine_token_id(generate_random_number())
 
-    txn = contract.functions.mint(user, token_id, 1, nonce, b"").buildTransaction({
+    txn = contract.functions.mint(user, token_id, nonce, b"").buildTransaction({
         "from": account.address,
         "gas": 200000,
         "gasPrice": w3.eth.gasPrice,
