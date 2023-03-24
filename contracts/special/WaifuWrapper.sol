@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import "contracts/nfts/IUniqueWaifu.sol";
 
 /**
  * @title WaifuWrapper
@@ -24,7 +25,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
     // Array of IERC1155 tokens representing the different seasons of tokens
     IERC1155[] private seasonWaifus;
 
-    IERC721 private uniqueWaifu;
+    IUniqueWaifu private uniqueWaifu;
 
     // Multipliers for each rarity level
     uint256[] private multipliers = [1, 5, 20, 100, 1500];
@@ -55,7 +56,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
         ERC1155("https://example.com/api/item/{id}.json")
     {
         seasonWaifus.push(IERC1155(_initialSeasonWaifu));
-        uniqueWaifu = IERC721(_uniqueWaifu);
+        uniqueWaifu = IUniqueWaifu(_uniqueWaifu);
     }
 
     /**
@@ -76,7 +77,14 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
         uniqueWaifu.safeTransferFrom(msg.sender, address(this), tokenId);
 
         uniqueWaifuOwners[tokenId] = msg.sender;
-        uint256 totalWrapped = 1500; // 1500x multiplier for unique tokens
+        uint256 totalWrapped;
+        bool legend = uniqueWaifu.getLegendary(tokenId);
+        uint256 totalUnwrapped;
+        if (legend) {
+            totalUnwrapped = 1500; // 1500x multiplier for unique tokens
+        } else {
+            totalUnwrapped = 3000; // 3000x for legendary unique
+        }
         _mint(msg.sender, UNIQUE, totalWrapped, "");
         userUniqueStaked[msg.sender].push(tokenId);
     }
@@ -135,8 +143,13 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
             uniqueWaifuOwners[tokenId] == msg.sender,
             "Not the owner of the unique NFT"
         );
-
-        uint256 totalUnwrapped = 1500; // 1500x multiplier for unique tokens
+        uint256 totalUnwrapped;
+        bool legend = uniqueWaifu.getLegendary(tokenId);
+        if (legend) {
+            totalUnwrapped = 1500; // 1500x multiplier for unique tokens
+        } else {
+            totalUnwrapped = 3000; // 3000x for legendary unique
+        }
         _burn(msg.sender, UNIQUE, totalUnwrapped);
 
         uniqueWaifu.safeTransferFrom(address(this), msg.sender, tokenId);
