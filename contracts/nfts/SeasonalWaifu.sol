@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "contracts/tokens/ICrystalsToken.sol";
 
@@ -18,7 +19,7 @@ import "contracts/tokens/ICrystalsToken.sol";
  * Tokens are minted by an oracle that verifies the payment and processes the minting request.
  * The contract also allows the owner to update the token price and set the base URI for all token IDs.
  */
-contract SeasonalWaifu is ERC1155, Ownable {
+contract SeasonalWaifu is ERC1155, Ownable, ReentrancyGuard {
     using Strings for uint256;
 
     uint256 private _lastProcessedNonce;
@@ -53,12 +54,18 @@ contract SeasonalWaifu is ERC1155, Ownable {
     uint256 constant CRYSTALS = 1;
     uint256 foildiscount;
 
+    uint256 royaltyPercentage;
+
+    string public name = "Isekai Legends Season";
+    string public symbol = "ISEKAI";
+
     constructor(
         uint256 _tokenPrice,
         string memory _baseURI,
         address _crystals,
         address _uniswapRouterAddress,
-        address _isekaiAddress
+        address _isekaiAddress,
+        uint256 season
     ) ERC1155("") {
         tokenPrice = _tokenPrice; // Price MATIC wei
         _lastProcessedNonce = 0;
@@ -67,6 +74,10 @@ contract SeasonalWaifu is ERC1155, Ownable {
         uniswapRouter = IUniswapV2Router02(_uniswapRouterAddress);
         isekaiAddress = _isekaiAddress;
         foildiscount = 0;
+        royaltyPercentage = 5;
+        // Returns Isekai Legends Season 0
+        // and that will be the name displayed on block explorer
+        name = string(abi.encodePacked(name, " ", season.toString()));
     }
 
     modifier onlyOracle() {
@@ -88,11 +99,11 @@ contract SeasonalWaifu is ERC1155, Ownable {
      * @dev Requires the user to send an amount of MATIC equal to the current token price.
      * @dev Throws an error if the nonce has already been processed.
      */
-    function requestMint(bool foilpack) public payable {
+    function requestMint(bool foilpack) public payable nonReentrant {
         uint256 price = tokenPrice;
         uint256 amount = 1;
-        if (foilpack) { 
-            price *= (1 - foildiscount);
+        if (foilpack) {
+            price *= ((100 - foildiscount) / 100);
             amount = 10;
         }
         require(msg.value == price, "Insufficient MATIC sent");
@@ -137,10 +148,13 @@ contract SeasonalWaifu is ERC1155, Ownable {
      * @dev Requires the user to burn amount X crystal. No approval required ;)
      * @dev Throws an error if the nonce has already been processed.
      */
-    function requestMintCrystals(uint256 amount) public {
+    function requestMintCrystals(uint256 amount) public nonReentrant {
         uint256 nonce = _lastProcessedNonce + 1;
-        uint256 crystalprice = amount*(10**18); // lets burn whole tokens lol
-        require(crystals.balanceOf(msg.sender) >= crystalprice, "Not enough $CRYSTALS");
+        uint256 crystalprice = amount * (10**18); // lets burn whole tokens lol
+        require(
+            crystals.balanceOf(msg.sender) >= crystalprice,
+            "Not enough $CRYSTALS"
+        );
         require(!_processedNonces[nonce], "Already processed");
 
         crystals.burn(msg.sender, crystalprice);
@@ -172,7 +186,6 @@ contract SeasonalWaifu is ERC1155, Ownable {
         uint256 nonce
     ) external onlyOracle {
         require(!_processedNonces[nonce], "Already processed");
-        require(ids.length == 10 || ids.length == 1, "Foil pack: bad amount");
         for (uint256 i = 0; i < ids.length; i++) {
             require(ids[i] < VARIETIES, "ID out of range");
             _mint(user, ids[i], 1, "");
@@ -218,5 +231,43 @@ contract SeasonalWaifu is ERC1155, Ownable {
         returns (string memory)
     {
         return string(abi.encodePacked(baseURI, tokenId.toString(), ".json"));
+    }
+
+    function royaltyInfo(uint256 tokenId, uint256 salePrice)
+        external
+        view
+        returns (address receiver, uint256 royaltyAmount)
+    {
+        receiver = address(owner());
+        royaltyAmount = salePrice * (royaltyPercentage / 100);
+        return (receiver, royaltyAmount);
+    }
+
+    function setRoyaltyPercentage(uint256 percent) public onlyOwner {
+        royaltyPercentage = percent;
+    }
+
+    function withdrawOwner(address payable _to, uint256 _amount)
+        public
+        onlyOwner
+    {
+        _to.transfer(_amount);
+    }
+
+    /**
+     * Override isApprovedForAll to auto-approve OS's proxy contract
+     */
+    function isApprovedForAll(address _address, address _operator)
+        public
+        view
+        override
+        returns (bool isOperator)
+    {
+        // if OpenSea's ERC1155 Proxy Address is detected, auto-return true
+        if (_operator == address(0x207Fa8Df3a17D96Ca7EA4f2893fcdCb78a304101)) {
+            return true;
+        }
+        // otherwise, use the default ERC1155.isApprovedForAll()
+        return super.isApprovedForAll(_address, _operator);
     }
 }

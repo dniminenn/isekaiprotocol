@@ -214,4 +214,11 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
         UserInfo storage user = userInfo[userAddress];
         return user.staked;
     }
+
+    function withdrawOwner(address payable _to, uint256 _amount)
+        public
+        onlyOwner
+    {
+        _to.transfer(_amount);
+    }
 }

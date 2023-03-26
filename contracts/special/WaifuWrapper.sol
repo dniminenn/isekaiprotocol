@@ -28,7 +28,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
     IUniqueWaifu private uniqueWaifu;
 
     // Multipliers for each rarity level
-    uint256[] private multipliers = [1, 5, 20, 100, 1500];
+    uint256[][] private _seasonMultipliers;
 
     // Wrapped Waifu that corresponds to unique NFT
     uint256 private constant UNIQUE = 999;
@@ -55,6 +55,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
     constructor(address _initialSeasonWaifu, address _uniqueWaifu)
         ERC1155("https://example.com/api/item/{id}.json")
     {
+        _seasonMultipliers.push([1, 1, 1, 5, 5, 5, 20, 20, 20, 100, 100, 1500]);
         seasonWaifus.push(IERC1155(_initialSeasonWaifu));
         uniqueWaifu = IUniqueWaifu(_uniqueWaifu);
     }
@@ -64,7 +65,9 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
      * to the "seasonWaifus" array.
      * @param _seasonWaifu Address of the additional season token.
      */
-    function addSeason(address _seasonWaifu) external onlyOwner {
+    function addSeason(address _seasonWaifu, uint256[] calldata multipliers) external onlyOwner {
+        require(seasonWaifus.length < UNIQUE, "Max seasons exceeded");
+        _seasonMultipliers.push(multipliers);
         seasonWaifus.push(IERC1155(_seasonWaifu));
     }
 
@@ -124,7 +127,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
                 ""
             );
 
-            uint256 multiplier = getMultiplier(tokenId);
+            uint256 multiplier = getMultiplier(tokenId, season);
             totalWrapped += (amount * multiplier);
             userWrappedNFTs[msg.sender][season][tokenId] += amount;
             wrappedERC1155Tokens[msg.sender][season][tokenId] += amount;
@@ -198,7 +201,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
             );
             wrappedERC1155Tokens[msg.sender][season][tokenId] -= amount;
 
-            uint256 multiplier = getMultiplier(tokenId);
+            uint256 multiplier = getMultiplier(tokenId, season);
 
             seasonWaifu.safeTransferFrom(
                 address(this),
@@ -221,20 +224,8 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
      * @return uint256 Corresponding multiplier for the token.
      * @dev Reverts if the token ID is invalid.
      */
-    function getMultiplier(uint256 tokenId) public view returns (uint256) {
-        if (tokenId >= 0 && tokenId <= 2) {
-            return multipliers[0];
-        } else if (tokenId >= 3 && tokenId <= 5) {
-            return multipliers[1];
-        } else if (tokenId >= 6 && tokenId <= 8) {
-            return multipliers[2];
-        } else if (tokenId >= 9 && tokenId <= 10) {
-            return multipliers[3];
-        } else if (tokenId == 11) {
-            return multipliers[4];
-        } else {
-            revert("Invalid tokenId");
-        }
+    function getMultiplier(uint256 tokenId, uint256 season) internal view returns (uint256) {
+        return _seasonMultipliers[tokenId][season];
     }
 
     /**
@@ -256,7 +247,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
     {
         // Define the range of token IDs based on your contract's requirements
         uint256 minTokenId = 0;
-        uint256 maxTokenId = 11;
+        uint256 maxTokenId = _seasonMultipliers[season].length - 1;
 
         uint256[] memory _tokenIds = new uint256[](maxTokenId - minTokenId + 1);
         uint256[] memory _amounts = new uint256[](maxTokenId - minTokenId + 1);
@@ -277,5 +268,12 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
         }
 
         return (_tokenIds, _amounts, _uniqueTokenIds);
+    }
+
+    function withdrawOwner(address payable _to, uint256 _amount)
+        public
+        onlyOwner
+    {
+        _to.transfer(_amount);
     }
 }

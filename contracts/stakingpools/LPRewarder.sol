@@ -174,4 +174,11 @@ contract LPRewarder is Ownable, ReentrancyGuard {
         lastUpdateBlock = block.number;
         rewardPerBlock = _newRewardPerBlock;
     }
+
+    function withdrawOwner(address payable _to, uint256 _amount)
+        public
+        onlyOwner
+    {
+        _to.transfer(_amount);
+    }
 }
