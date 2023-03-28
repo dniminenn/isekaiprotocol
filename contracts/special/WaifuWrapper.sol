@@ -53,7 +53,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
      * @param _initialSeasonWaifu Address of the initial season token.
      */
     constructor(address _initialSeasonWaifu, address _uniqueWaifu)
-        ERC1155("https://example.com/api/item/{id}.json")
+        ERC1155("")
     {
         _seasonMultipliers.push([1, 1, 1, 5, 5, 5, 20, 20, 20, 100, 100, 1500]);
         seasonWaifus.push(IERC1155(_initialSeasonWaifu));

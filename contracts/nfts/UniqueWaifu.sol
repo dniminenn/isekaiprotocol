@@ -3,9 +3,11 @@
 
 pragma solidity ^0.8.0 .0;
 
-import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./erc721a/ERC721A.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 
 /**
  * @title UniqueWaifu
@@ -14,7 +16,11 @@ import "./erc721a/ERC721A.sol";
  * @notice This contract allows users to mint unique waifu NFTs and provides functions for managing the collection.
  * @notice The contract also implements functions for interfacing with OpenSea.
  */
-contract UniqueWaifu is ERC721A, Ownable {
+contract UniqueWaifu is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
+    using Counters for Counters.Counter;
+
+    Counters.Counter private _tokenIdCounter;
+
     string private _baseUrl = "https://assets.isekai.online/legends/";
     // used by opensea contractURI() to populate collection overview
     string private _contractUrl =
@@ -40,11 +46,12 @@ contract UniqueWaifu is ERC721A, Ownable {
         string memory contractUrl,
         uint256 price,
         uint256 royaltyPercentage
-    ) ERC721A("Isekai Legends", "ISEKAI") {
+    ) ERC721("Isekai Legends", "ISEKAI") {
         _baseUrl = baseUrl;
         _contractUrl = contractUrl;
         _amountClaim = price;
         _royaltyPercentage = royaltyPercentage;
+        _tokenIdCounter.increment(); // first ID is 1, not 0
     }
 
     modifier onlyOracle() {
@@ -61,11 +68,6 @@ contract UniqueWaifu is ERC721A, Ownable {
      */
     function setOracleAddress(address oracle) public onlyOwner {
         _oracleAddress = oracle;
-    }
-
-    // override the first token id to 1 instead of 0
-    function _startTokenId() internal view virtual override returns (uint256) {
-        return 1;
     }
 
     /**
@@ -92,14 +94,23 @@ contract UniqueWaifu is ERC721A, Ownable {
         bool isLegendary,
         uint256 nonce
     ) public onlyOracle {
+        uint256 currentid = _tokenIdCounter.current();
+        _tokenIdCounter.increment();
         require(!_processedNonces[nonce], "Already processed");
-        _safeMint(_to, 1);
-        uint256 currentid = totalSupply() + 1;
+        _safeMint(_to, currentid);
         if (isLegendary) {
             _isLegendary[currentid] = true;
         }
         _processedNonces[nonce] = true;
         emit MintProcessed(_to, nonce);
+    }
+
+    /**
+    * @dev Mints an arbitrary NFT, ID must not exist
+    * Supports traversal
+    */
+    function specialMint(address _to, uint256 id) public onlyOwner {
+        _safeMint(_to, id);
     }
 
     // cash out
@@ -189,13 +200,30 @@ contract UniqueWaifu is ERC721A, Ownable {
         _royaltyPercentage = percent;
     }
 
+
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize)
+        internal
+        override(ERC721, ERC721Enumerable)
+    {
+        super._beforeTokenTransfer(from, to, tokenId, batchSize);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721Enumerable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
     /**
      * Override isApprovedForAll to auto-approve OS's proxy contract
      */
     function isApprovedForAll(address _address, address _operator)
         public
         view
-        override
+        override(ERC721, IERC721)
         returns (bool isOperator)
     {
         // if OpenSea's ERC721 Proxy Address is detected, auto-return true
