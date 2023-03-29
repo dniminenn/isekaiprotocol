@@ -83,7 +83,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
         uint256 totalWrapped;
         bool legend = uniqueWaifu.getLegendary(tokenId);
         uint256 totalUnwrapped;
-        if (legend) {
+        if (!legend) {
             totalUnwrapped = 1500; // 1500x multiplier for unique tokens
         } else {
             totalUnwrapped = 3000; // 3000x for legendary unique
