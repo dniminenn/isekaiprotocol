@@ -5,6 +5,7 @@ pragma solidity ^0.8.0 .0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -16,7 +17,13 @@ import "@openzeppelin/contracts/utils/Counters.sol";
  * @notice This contract allows users to mint unique waifu NFTs and provides functions for managing the collection.
  * @notice The contract also implements functions for interfacing with OpenSea.
  */
-contract UniqueWaifu is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
+contract UniqueWaifu is
+    ERC721,
+    ERC721Enumerable,
+    Pausable,
+    Ownable,
+    ERC721Burnable
+{
     using Counters for Counters.Counter;
 
     Counters.Counter private _tokenIdCounter;
@@ -28,6 +35,7 @@ contract UniqueWaifu is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
     uint256 private _amountClaim = 100000000000000000000;
 
     address private _oracleAddress;
+    mapping(address => bool) private _authorizedAddresses;
 
     mapping(uint256 => bool) private _isLegendary;
 
@@ -62,12 +70,42 @@ contract UniqueWaifu is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
         _;
     }
 
+    /** Authorized addresses to pause
+     */
+    modifier onlyAuthorized() {
+        require(
+            msg.sender == owner() || _authorizedAddresses[msg.sender],
+            "MyContract: caller is not authorized"
+        );
+        _;
+    }
+
+    /** Emergency pause, can only be reset by multisig
+     */
+    function pause() public onlyAuthorized {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
     /**
      * @dev Sets the address of the oracle that can call restricted functions.
      * @param oracle The address of the oracle.
      */
     function setOracleAddress(address oracle) public onlyOwner {
         _oracleAddress = oracle;
+    }
+
+    function addAuthorizedAddress(address newAddress) public onlyOwner {
+        require(_authorizedAddresses[newAddress] == false, "Oops");
+        _authorizedAddresses[newAddress] = true;
+    }
+
+    function removeAuthorizedAddress(address addressToRemove) public onlyOwner {
+        require(_authorizedAddresses[addressToRemove] == true, "Oops");
+        _authorizedAddresses[addressToRemove] = false;
     }
 
     /**
@@ -106,9 +144,9 @@ contract UniqueWaifu is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
     }
 
     /**
-    * @dev Mints an arbitrary NFT, ID must not exist
-    * Supports traversal
-    */
+     * @dev Mints an arbitrary NFT, ID must not exist
+     * Supports traversal
+     */
     function specialMint(address _to, uint256 id) public onlyOwner {
         _safeMint(_to, id);
     }
@@ -200,11 +238,12 @@ contract UniqueWaifu is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
         _royaltyPercentage = percent;
     }
 
-
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize)
-        internal
-        override(ERC721, ERC721Enumerable)
-    {
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 batchSize
+    ) internal override(ERC721, ERC721Enumerable) {
         super._beforeTokenTransfer(from, to, tokenId, batchSize);
     }
 
