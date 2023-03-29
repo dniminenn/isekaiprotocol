@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title UniqueWaifu
@@ -20,9 +21,10 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 contract UniqueWaifu is
     ERC721,
     ERC721Enumerable,
+    ERC721Burnable,
     Pausable,
     Ownable,
-    ERC721Burnable
+    ReentrancyGuard
 {
     using Counters for Counters.Counter;
 
@@ -162,7 +164,7 @@ contract UniqueWaifu is
     /**
      * @dev Allows a user to request the minting of a unique waifu NFT by paying the current mint price.
      */
-    function requestMint() public payable {
+    function requestMint() public payable nonReentrant whenNotPaused {
         uint256 nonce = _lastProcessedNonce + 1;
         require(!_processedNonces[nonce], "Already processed");
         require(msg.value == _amountClaim, "Incorrect price");
@@ -243,7 +245,7 @@ contract UniqueWaifu is
         address to,
         uint256 tokenId,
         uint256 batchSize
-    ) internal override(ERC721, ERC721Enumerable) {
+    ) internal override(ERC721, ERC721Enumerable) whenNotPaused {
         super._beforeTokenTransfer(from, to, tokenId, batchSize);
     }
 
