@@ -7,15 +7,18 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "contracts/tokens/ICrystalsToken.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
  * @title LPRewarder
  * @dev This contract allows users to stake LP tokens and receive rewards in Crystals tokens.
  * Rewards are distributed proportionally to the amount of LP tokens staked by each user.
  */
-contract LPRewarder is Ownable, ReentrancyGuard {
+contract LPRewarder is Ownable, ReentrancyGuard, Pausable {
     IERC20 public lpToken;
     ICrystalsToken public crystals;
+
+    mapping(address => bool) private _authorizedAddresses;
 
     struct UserInfo {
         uint256 staked;
@@ -47,11 +50,41 @@ contract LPRewarder is Ownable, ReentrancyGuard {
         lastUpdateBlock = block.number;
     }
 
+    /** Authorized addresses to pause
+     */
+    modifier onlyAuthorized() {
+        require(
+            msg.sender == owner() || _authorizedAddresses[msg.sender],
+            "Caller is not authorized"
+        );
+        _;
+    }
+
+    function addAuthorizedAddress(address newAddress) public onlyOwner {
+        require(_authorizedAddresses[newAddress] == false, "Oops");
+        _authorizedAddresses[newAddress] = true;
+    }
+
+    function removeAuthorizedAddress(address addressToRemove) public onlyOwner {
+        require(_authorizedAddresses[addressToRemove] == true, "Oops");
+        _authorizedAddresses[addressToRemove] = false;
+    }
+
+    /** Emergency pause, can only be reset by multisig
+     */
+    function pause() public onlyAuthorized {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
     /**
      * @dev Allows a user to stake LP tokens in the contract.
      * @param amount Amount of LP tokens to stake.
      */
-    function stake(uint256 amount) external nonReentrant {
+    function stake(uint256 amount) external whenNotPaused nonReentrant {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
 
@@ -74,7 +107,7 @@ contract LPRewarder is Ownable, ReentrancyGuard {
      * @dev Allows a user to withdraw their staked LP tokens and claim any pending rewards.
      * @param amount Amount of LP tokens to withdraw.
      */
-    function withdraw(uint256 amount) external nonReentrant {
+    function withdraw(uint256 amount) external whenNotPaused nonReentrant {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
         require(user.staked >= amount, "Not enough staked tokens");
@@ -97,7 +130,7 @@ contract LPRewarder is Ownable, ReentrancyGuard {
      * The amount of rewards to claim is calculated based on the user's staked balance and the current reward accumulation rate.
      * Mints new $crystal
      */
-    function claimReward() external nonReentrant {
+    function claimReward() external whenNotPaused nonReentrant {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
         uint256 pendingReward = getPendingReward(msg.sender);

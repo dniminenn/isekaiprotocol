@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "contracts/nfts/IUniqueWaifu.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
  * @title WaifuWrapper
@@ -21,11 +22,13 @@ import "contracts/nfts/IUniqueWaifu.sol";
  * defined at deploy time through the construction.
  * TODO: Assign two rarities to custom ERC721 - multipliers 1500 and 3000
  */
-contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
+contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausable {
     // Array of IERC1155 tokens representing the different seasons of tokens
     IERC1155[] private seasonWaifus;
 
     IUniqueWaifu private uniqueWaifu;
+
+    mapping(address => bool) private _authorizedAddresses;
 
     // Multipliers for each rarity level
     uint256[][] private _seasonMultipliers;
@@ -60,6 +63,36 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
         uniqueWaifu = IUniqueWaifu(_uniqueWaifu);
     }
 
+    /** Authorized addresses to pause
+     */
+    modifier onlyAuthorized() {
+        require(
+            msg.sender == owner() || _authorizedAddresses[msg.sender],
+            "Caller is not authorized"
+        );
+        _;
+    }
+
+    function addAuthorizedAddress(address newAddress) public onlyOwner {
+        require(_authorizedAddresses[newAddress] == false, "Oops");
+        _authorizedAddresses[newAddress] = true;
+    }
+
+    function removeAuthorizedAddress(address addressToRemove) public onlyOwner {
+        require(_authorizedAddresses[addressToRemove] == true, "Oops");
+        _authorizedAddresses[addressToRemove] = false;
+    }
+
+    /** Emergency pause, can only be reset by multisig
+     */
+    function pause() public onlyAuthorized {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
     /**
      * @dev Function that allows the contract owner to add additional seasons
      * to the "seasonWaifus" array.
@@ -76,7 +109,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
      * season by wrapping it into an ERC1155 token with a fixed value of 1500.
      * @param tokenId ID of the unique NFT to deposit.
      */
-    function wrapUnique(uint256 tokenId) external nonReentrant {
+    function wrapUnique(uint256 tokenId) external whenNotPaused nonReentrant {
         uniqueWaifu.safeTransferFrom(msg.sender, address(this), tokenId);
 
         uniqueWaifuOwners[tokenId] = msg.sender;
@@ -103,7 +136,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
         uint256 season,
         uint256[] calldata tokenIds,
         uint256[] calldata amounts
-    ) external nonReentrant {
+    ) external whenNotPaused nonReentrant {
         require(
             tokenIds.length == amounts.length,
             "TokenIds and amounts length mismatch"
@@ -141,7 +174,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
      * from the contract and receive the underlying unique NFT.
      * @param tokenId ID of the unique NFT to withdraw.
      */
-    function unwrapUnique(uint256 tokenId) external nonReentrant {
+    function unwrapUnique(uint256 tokenId) external whenNotPaused nonReentrant {
         require(
             uniqueWaifuOwners[tokenId] == msg.sender,
             "Not the owner of the unique NFT"
@@ -179,7 +212,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard {
         uint256 season,
         uint256[] calldata tokenIds,
         uint256[] calldata amounts
-    ) external nonReentrant {
+    ) external whenNotPaused nonReentrant {
         require(
             tokenIds.length == amounts.length,
             "TokenIds and amounts length mismatch"

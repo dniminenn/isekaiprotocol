@@ -26,9 +26,8 @@ contract UniqueWaifu is
     Ownable,
     ReentrancyGuard
 {
-    using Counters for Counters.Counter;
-
-    Counters.Counter private _tokenIdCounter;
+    uint256 _mintnonce;
+    mapping(bytes32 => bool) private _pendingMints;
 
     string private _baseUrl = "https://assets.isekai.online/legends/";
     // used by opensea contractURI() to populate collection overview
@@ -40,9 +39,6 @@ contract UniqueWaifu is
     mapping(address => bool) private _authorizedAddresses;
 
     mapping(uint256 => bool) private _isLegendary;
-
-    uint256 private _lastProcessedNonce;
-    mapping(uint256 => bool) private _processedNonces;
 
     uint256 private _royaltyPercentage = 5;
 
@@ -61,7 +57,7 @@ contract UniqueWaifu is
         _contractUrl = contractUrl;
         _amountClaim = price;
         _royaltyPercentage = royaltyPercentage;
-        _tokenIdCounter.increment(); // first ID is 1, not 0
+        _mintnonce = 1; // first ID = 1
     }
 
     modifier onlyOracle() {
@@ -77,7 +73,7 @@ contract UniqueWaifu is
     modifier onlyAuthorized() {
         require(
             msg.sender == owner() || _authorizedAddresses[msg.sender],
-            "MyContract: caller is not authorized"
+            "Caller is not authorized"
         );
         _;
     }
@@ -134,14 +130,11 @@ contract UniqueWaifu is
         bool isLegendary,
         uint256 nonce
     ) public onlyOracle {
-        uint256 currentid = _tokenIdCounter.current();
-        _tokenIdCounter.increment();
-        require(!_processedNonces[nonce], "Already processed");
-        _safeMint(_to, currentid);
-        if (isLegendary) {
-            _isLegendary[currentid] = true;
-        }
-        _processedNonces[nonce] = true;
+        bytes32 index = keccak256(abi.encodePacked(_to, nonce));
+        require(_pendingMints[index], "No pending request for user");
+        _isLegendary[nonce] = isLegendary;
+        _pendingMints[index] = false;
+        _safeMint(_to, nonce);
         emit MintProcessed(_to, nonce);
     }
 
@@ -165,11 +158,16 @@ contract UniqueWaifu is
      * @dev Allows a user to request the minting of a unique waifu NFT by paying the current mint price.
      */
     function requestMint() public payable nonReentrant whenNotPaused {
-        uint256 nonce = _lastProcessedNonce + 1;
-        require(!_processedNonces[nonce], "Already processed");
+        bytes32 index = keccak256(abi.encodePacked(msg.sender, _mintnonce));
         require(msg.value == _amountClaim, "Incorrect price");
-        _lastProcessedNonce = nonce;
-        emit MintRequest(msg.sender, nonce);
+        _pendingMints[index] = true;
+        emit MintRequest(msg.sender, _mintnonce);
+        _mintnonce++;
+    }
+
+    function requestExists(address user, uint256 nonce)  external view returns(bool) {
+        bytes32 index = keccak256(abi.encodePacked(user,nonce));
+        return _pendingMints[index];
     }
 
     /**

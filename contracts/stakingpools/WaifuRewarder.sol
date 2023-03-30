@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
  * @title WaifuRewarder
@@ -17,9 +18,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * - Seasonal: deploy with season number in constructor
  * Contract will ceased distributing at the calculated endBlock
  */
-contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
+contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
     IERC20 public isekai;
     IERC1155 public isekaiIOU;
+
+    mapping(address => bool) private _authorizedAddresses;
 
     // The reward amount per block, the "emissions rate"
     // defined and constructor and FIXED for the duration
@@ -83,11 +86,41 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
         // it looks like we must approve then send in the tokens
     }
 
+    /** Authorized addresses to pause
+     */
+    modifier onlyAuthorized() {
+        require(
+            msg.sender == owner() || _authorizedAddresses[msg.sender],
+            "Caller is not authorized"
+        );
+        _;
+    }
+
+    function addAuthorizedAddress(address newAddress) public onlyOwner {
+        require(_authorizedAddresses[newAddress] == false, "Oops");
+        _authorizedAddresses[newAddress] = true;
+    }
+
+    function removeAuthorizedAddress(address addressToRemove) public onlyOwner {
+        require(_authorizedAddresses[addressToRemove] == true, "Oops");
+        _authorizedAddresses[addressToRemove] = false;
+    }
+
+    /** Emergency pause, can only be reset by multisig
+     */
+    function pause() public onlyAuthorized {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
     /**
      * @dev Stake ERC1155 tokens
      * @param amount The amount of ERC1155 tokens to stake
      */
-    function stake(uint256 amount) external nonReentrant {
+    function stake(uint256 amount) external whenNotPaused nonReentrant {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
         isekaiIOU.safeTransferFrom(
@@ -115,7 +148,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
      * @dev Withdraw ERC1155 tokens
      * @param amount The amount of ERC1155 tokens to withdraw
      */
-    function withdraw(uint256 amount) external nonReentrant {
+    function withdraw(uint256 amount) external whenNotPaused nonReentrant {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
         require(user.staked >= amount, "Not enough staked tokens");
@@ -141,7 +174,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder {
     /**
      * @dev Claim the accumulated ERC20 rewards for a user
      */
-    function claimReward() external nonReentrant {
+    function claimReward() external whenNotPaused nonReentrant {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
         uint256 pendingReward = getPendingReward(msg.sender);

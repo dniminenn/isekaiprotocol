@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "contracts/tokens/ICrystalsToken.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
  * @title SeasonalWaifu
@@ -19,11 +20,11 @@ import "contracts/tokens/ICrystalsToken.sol";
  * Tokens are minted by an oracle that verifies the payment and processes the minting request.
  * The contract also allows the owner to update the token price and set the base URI for all token IDs.
  */
-contract SeasonalWaifu is ERC1155, Ownable, ReentrancyGuard {
+contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
     using Strings for uint256;
 
-    uint256 private _lastProcessedNonce;
-    mapping(uint256 => bool) private _processedNonces;
+    uint256 _mintnonce;
+    mapping(bytes32 => bool) private _pendingMints;
     uint256 public tokenPrice;
     string private baseURI;
     address private _oracleAddress;
@@ -34,6 +35,8 @@ contract SeasonalWaifu is ERC1155, Ownable, ReentrancyGuard {
     // Our DEX
     address public isekaiAddress;
     address private uniswapRouterAddress;
+
+    mapping(address => bool) private _authorizedAddresses;
 
     // for oracle use
     event MintRequest(
@@ -68,7 +71,6 @@ contract SeasonalWaifu is ERC1155, Ownable, ReentrancyGuard {
         uint256 season
     ) ERC1155("") {
         tokenPrice = _tokenPrice; // Price MATIC wei
-        _lastProcessedNonce = 0;
         baseURI = _baseURI;
         crystals = ICrystalsToken(_crystals);
         uniswapRouter = IUniswapV2Router02(_uniswapRouterAddress);
@@ -88,8 +90,39 @@ contract SeasonalWaifu is ERC1155, Ownable, ReentrancyGuard {
         _;
     }
 
+    
+    /** Authorized addresses to pause
+     */
+    modifier onlyAuthorized() {
+        require(
+            msg.sender == owner() || _authorizedAddresses[msg.sender],
+            "Caller is not authorized"
+        );
+        _;
+    }
+
     function setOracleAddress(address oracle) public onlyOwner {
         _oracleAddress = oracle;
+    }
+
+    function addAuthorizedAddress(address newAddress) public onlyOwner {
+        require(_authorizedAddresses[newAddress] == false, "Oops");
+        _authorizedAddresses[newAddress] = true;
+    }
+
+    function removeAuthorizedAddress(address addressToRemove) public onlyOwner {
+        require(_authorizedAddresses[addressToRemove] == true, "Oops");
+        _authorizedAddresses[addressToRemove] = false;
+    }
+
+    /** Emergency pause, can only be reset by multisig
+     */
+    function pause() public onlyAuthorized {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
     }
 
     /**
@@ -99,7 +132,7 @@ contract SeasonalWaifu is ERC1155, Ownable, ReentrancyGuard {
      * @dev Requires the user to send an amount of MATIC equal to the current token price.
      * @dev Throws an error if the nonce has already been processed.
      */
-    function requestMint(bool foilpack) public payable nonReentrant {
+    function requestMint(bool foilpack) public payable whenNotPaused nonReentrant {
         uint256 price = tokenPrice;
         uint256 amount = 1;
         if (foilpack) {
@@ -108,10 +141,10 @@ contract SeasonalWaifu is ERC1155, Ownable, ReentrancyGuard {
         }
         require(msg.value == price, "Insufficient MATIC sent");
 
-        uint256 nonce = _lastProcessedNonce + 1;
-        require(!_processedNonces[nonce], "Already processed");
-        _lastProcessedNonce = nonce;
-        emit MintRequest(msg.sender, nonce, ETH, amount);
+        emit MintRequest(msg.sender, _mintnonce, ETH, amount);
+        bytes32 index = keccak256(abi.encodePacked(msg.sender,_mintnonce));
+        _pendingMints[index] = true;
+        _mintnonce++;
 
         if (autobuy) {
             address[] memory path = new address[](2);
@@ -148,20 +181,23 @@ contract SeasonalWaifu is ERC1155, Ownable, ReentrancyGuard {
      * @dev Requires the user to burn amount X crystal. No approval required ;)
      * @dev Throws an error if the nonce has already been processed.
      */
-    function requestMintCrystals(uint256 amount) public nonReentrant {
-        uint256 nonce = _lastProcessedNonce + 1;
+    function requestMintCrystals(uint256 amount) public whenNotPaused nonReentrant {
         uint256 crystalprice = amount * (10**18); // lets burn whole tokens lol
         require(
             crystals.balanceOf(msg.sender) >= crystalprice,
             "Not enough $CRYSTALS"
         );
-        require(!_processedNonces[nonce], "Already processed");
+        
+        bytes32 index = keccak256(abi.encodePacked(msg.sender, _mintnonce));
+        _pendingMints[index] = true;
 
         crystals.burn(msg.sender, crystalprice);
 
         // We should tell our Oracle that we are using crystals
         // for better odds...
-        emit MintRequest(msg.sender, nonce, CRYSTALS, amount);
+        emit MintRequest(msg.sender, _mintnonce, CRYSTALS, amount);
+
+        _mintnonce++;
     }
 
     /**
@@ -185,22 +221,21 @@ contract SeasonalWaifu is ERC1155, Ownable, ReentrancyGuard {
         uint256[] memory ids,
         uint256 nonce
     ) external onlyOracle {
-        require(!_processedNonces[nonce], "Already processed");
+        bytes32 index = keccak256(abi.encodePacked(user,nonce));
+        require(_pendingMints[index], "No pending request by this user");
         for (uint256 i = 0; i < ids.length; i++) {
             require(ids[i] < VARIETIES, "ID out of range");
             _mint(user, ids[i], 1, "");
         }
-        _processedNonces[nonce] = true;
+        _pendingMints[index] = false;
         emit MintProcessed(user, ids, nonce);
     }
 
-    /**
-     * @dev Returns the last processed nonce.
-     * @return uint256 representing the last processed nonce.
-     */
-    function lastProcessedNonce() public view returns (uint256) {
-        return _lastProcessedNonce;
+    function requestExists(address user, uint256 nonce)  external view returns(bool) {
+        bytes32 index = keccak256(abi.encodePacked(user,nonce));
+        return _pendingMints[index];
     }
+
 
     /**
      * @dev Updates the price of the tokens.
@@ -252,6 +287,14 @@ contract SeasonalWaifu is ERC1155, Ownable, ReentrancyGuard {
         onlyOwner
     {
         _to.transfer(_amount);
+    }
+
+    function _beforeTokenTransfer(address operator, address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)
+        internal
+        whenNotPaused
+        override
+    {
+        super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
     }
 
     /**
