@@ -57,6 +57,7 @@ contract UniqueWaifu is
         _amountClaim = price;
         _royaltyPercentage = royaltyPercentage;
         _mintnonce = 1; // first ID = 1
+        _pause();
     }
 
     modifier onlyOracle() {

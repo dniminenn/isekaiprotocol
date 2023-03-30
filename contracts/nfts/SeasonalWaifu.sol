@@ -80,6 +80,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         // Returns Isekai Legends Season 0
         // and that will be the name displayed on block explorer
         name = string(abi.encodePacked(name, " ", season.toString()));
+        pause();
     }
 
     modifier onlyOracle() {
