@@ -47,7 +47,15 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
         _beforeTokenTransfer(sender, recipient, amount);
 
         uint256 taxAmount = 0;
-        if (!_excludedFromTax[sender] || !_excludedFromTax[recipient]) {
+        bool isSenderContract = _isContract(sender);
+        bool isRecipientContract = _isContract(recipient);
+
+        // charge tax when address is a contract AND neither address is excluded
+        if (
+            !_excludedFromTax[sender] &&
+            !_excludedFromTax[recipient] &&
+            (isSenderContract || isRecipientContract)
+        ) {
             taxAmount = (amount * taxPercentage) / 100;
         }
         uint256 netAmount = amount - taxAmount;
@@ -56,6 +64,17 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
             super._transfer(sender, taxDestination, taxAmount);
         }
         super._transfer(sender, recipient, netAmount);
+    }
+
+    /**
+     * @dev Checks if the address is a contract by examining the bytecode length.
+     */
+    function _isContract(address addr) private view returns (bool) {
+        uint32 size;
+        assembly {
+            size := extcodesize(addr)
+        }
+        return (size > 0);
     }
 
     /**
