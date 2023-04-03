@@ -45,7 +45,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         uint256 crystals,
         uint256 amount
     );
-    // to update user dapp
+    // to update user dapp and oracle
     event MintProcessed(
         address indexed user,
         uint256[] tokenIds,

@@ -56,7 +56,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
     /**
      * @dev Constructor function for the IsekaiIOUStaking contract.
      * @param _isekai The address of the Isekai ERC20 token contract.
-     * @param _isekaiIOU The address of the IsekaiIOU ERC1155 token contract.
+     * @param _isekaiIOU The address of the WrappedWaifu ERC1155 token contract.
      * The function initializes the `isekai` and `isekaiIOU` variables with the provided contract addresses.
      * The `lastUpdateBlock` variable is set to the current block number.
      * The `endBlock` variable is calculated based on the `initialRewardAmount` and `rewardPerBlock` variables,
