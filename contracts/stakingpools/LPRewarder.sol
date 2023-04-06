@@ -2,12 +2,12 @@
 // @author Isekai Dev
 pragma solidity ^0.8.0 .0;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "contracts/tokens/ICrystalsToken.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
  * @title LPRewarder
@@ -206,12 +206,5 @@ contract LPRewarder is Ownable, ReentrancyGuard, Pausable {
         updateRewardAccumulationRate();
         lastUpdateBlock = block.number;
         rewardPerBlock = _newRewardPerBlock;
-    }
-
-    function withdrawOwner(address payable _to, uint256 _amount)
-        public
-        onlyOwner
-    {
-        _to.transfer(_amount);
     }
 }

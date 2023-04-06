@@ -19,8 +19,8 @@ import "@openzeppelin/contracts/security/Pausable.sol";
  * Contract will ceased distributing at the calculated endBlock
  */
 contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
-    IERC20 public isekai;
-    IERC1155 public isekaiIOU;
+    IERC20 public isekaiToken;
+    IERC1155 public wrappedWaifu;
 
     mapping(address => bool) private _authorizedAddresses;
 
@@ -55,8 +55,8 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
 
     /**
      * @dev Constructor function for the IsekaiIOUStaking contract.
-     * @param _isekai The address of the Isekai ERC20 token contract.
-     * @param _isekaiIOU The address of the WrappedWaifu ERC1155 token contract.
+     * @param _isekaiToken The address of the Isekai ERC20 token contract.
+     * @param _wrappedWaifu The address of the WrappedWaifu ERC1155 token contract.
      * The function initializes the `isekai` and `isekaiIOU` variables with the provided contract addresses.
      * The `lastUpdateBlock` variable is set to the current block number.
      * The `endBlock` variable is calculated based on the `initialRewardAmount` and `rewardPerBlock` variables,
@@ -65,15 +65,15 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
      * from the `msg.sender` to the address of the IsekaiIOUStaking contract.
      */
     constructor(
-        address _isekai,
-        address _isekaiIOU,
+        address _isekaiToken,
+        address _wrappedWaifu,
         uint256 _season,
         uint256 initialTokenBalance,
         uint256 _rewardPerBlock
     ) {
         season = _season;
-        isekai = IERC20(_isekai);
-        isekaiIOU = IERC1155(_isekaiIOU);
+        isekaiToken = IERC20(_isekaiToken);
+        wrappedWaifu = IERC1155(_wrappedWaifu);
         lastUpdateBlock = block.number;
         rewardPerBlock = _rewardPerBlock;
 
@@ -123,7 +123,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
     function stake(uint256 amount) external whenNotPaused nonReentrant {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
-        isekaiIOU.safeTransferFrom(
+        wrappedWaifu.safeTransferFrom(
             msg.sender,
             address(this),
             season,
@@ -134,7 +134,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
         if (user.staked > 0) {
             uint256 pendingReward = getPendingReward(msg.sender);
             if (pendingReward > 0) {
-                isekai.transfer(msg.sender, pendingReward);
+                isekaiToken.transfer(msg.sender, pendingReward);
             }
         }
 
@@ -152,7 +152,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
         require(user.staked >= amount, "Not enough staked tokens");
-        isekaiIOU.safeTransferFrom(
+        wrappedWaifu.safeTransferFrom(
             address(this),
             msg.sender,
             season,
@@ -162,7 +162,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
 
         uint256 pendingReward = getPendingReward(msg.sender);
         if (pendingReward > 0) {
-            isekai.transfer(msg.sender, pendingReward);
+            isekaiToken.transfer(msg.sender, pendingReward);
         }
 
         user.staked -= amount;
@@ -180,7 +180,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
         uint256 pendingReward = getPendingReward(msg.sender);
         require(pendingReward > 0, "No pending reward");
 
-        isekai.transfer(msg.sender, pendingReward);
+        isekaiToken.transfer(msg.sender, pendingReward);
         user.rewardDebt += pendingReward;
         user.lastActionBlock = block.number;
     }
@@ -246,12 +246,5 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
     {
         UserInfo storage user = userInfo[userAddress];
         return user.staked;
-    }
-
-    function withdrawOwner(address payable _to, uint256 _amount)
-        public
-        onlyOwner
-    {
-        _to.transfer(_amount);
     }
 }

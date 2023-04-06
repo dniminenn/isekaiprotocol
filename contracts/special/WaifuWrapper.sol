@@ -36,19 +36,15 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
     // Wrapped Waifu that corresponds to unique NFT
     uint256 private constant UNIQUE = 999;
 
-    // Mapping userWrappedNFTs[address][season][tokenid] stores amounts, ERC1155
+    // Mapping userWrappedWaifus[address][season][tokenid] stores amounts, ERC1155
     mapping(address => mapping(uint256 => mapping(uint256 => uint256)))
-        private userWrappedNFTs;
+        private userWrappedWaifus;
 
     // Mapping to store unique token IDs staked by each user
     mapping(address => uint256[]) private userUniqueStaked;
 
     // Mapping to store the owner of unique NFTs
     mapping(uint256 => address) private uniqueWaifuOwners;
-
-    // Mapping to store the wrapped ERC1155 token IDs and their respective owners
-    mapping(address => mapping(uint256 => mapping(uint256 => uint256)))
-        private wrappedERC1155Tokens;
 
     /**
      * @dev Constructor function that adds an initial season to the
@@ -58,6 +54,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
     constructor(address _initialSeasonWaifu, address _uniqueWaifu)
         ERC1155("")
     {
+        // 12 varieties
         _seasonMultipliers.push([1, 1, 1, 5, 5, 5, 20, 20, 20, 100, 100, 1500]);
         seasonWaifus.push(IERC1155(_initialSeasonWaifu));
         uniqueWaifu = IUniqueWaifu(_uniqueWaifu);
@@ -162,8 +159,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
 
             uint256 multiplier = getMultiplier(tokenId, season);
             totalWrapped += (amount * multiplier);
-            userWrappedNFTs[msg.sender][season][tokenId] += amount;
-            wrappedERC1155Tokens[msg.sender][season][tokenId] += amount;
+            userWrappedWaifus[msg.sender][season][tokenId] += amount;
         }
 
         _mint(msg.sender, season, totalWrapped, "");
@@ -229,10 +225,9 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
             uint256 amount = amounts[i];
 
             require(
-                wrappedERC1155Tokens[msg.sender][season][tokenId] >= amount,
+                userWrappedWaifus[msg.sender][season][tokenId] >= amount,
                 "Not the owner or insufficient wrapped ERC1155 tokens"
             );
-            wrappedERC1155Tokens[msg.sender][season][tokenId] -= amount;
 
             uint256 multiplier = getMultiplier(tokenId, season);
 
@@ -244,7 +239,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
                 ""
             );
             totalUnwrapped += (amount * multiplier);
-            userWrappedNFTs[msg.sender][season][tokenId] -= amount;
+            userWrappedWaifus[msg.sender][season][tokenId] -= amount;
         }
 
         _burn(msg.sender, season, totalUnwrapped);
@@ -269,7 +264,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
      * @return amounts An array of the corresponding amounts of each wrapped NFT owned by the user.
      * @return uniqueTokenIds An array of the unique ERC721 token IDs staked by the user.
      */
-    function getuserWrappedNFTs(address user, uint256 season)
+    function getuserWrappedWaifus(address user, uint256 season)
         public
         view
         returns (
@@ -287,7 +282,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
 
         for (uint256 tokenId = minTokenId; tokenId <= maxTokenId; tokenId++) {
             _tokenIds[tokenId - minTokenId] = tokenId;
-            _amounts[tokenId - minTokenId] = userWrappedNFTs[user][season][
+            _amounts[tokenId - minTokenId] = userWrappedWaifus[user][season][
                 tokenId
             ];
         }
@@ -301,12 +296,5 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
         }
 
         return (_tokenIds, _amounts, _uniqueTokenIds);
-    }
-
-    function withdrawOwner(address payable _to, uint256 _amount)
-        public
-        onlyOwner
-    {
-        _to.transfer(_amount);
     }
 }

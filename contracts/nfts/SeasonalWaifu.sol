@@ -4,13 +4,13 @@
 pragma solidity ^0.8.0 .0;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "contracts/tokens/ICrystalsToken.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
  * @title SeasonalWaifu
@@ -412,4 +412,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         // otherwise, use the default ERC1155.isApprovedForAll()
         return super.isApprovedForAll(_address, _operator);
     }
+
+    // To receive swapExactETHForTokens refund
+    receive() external payable { }
 }
