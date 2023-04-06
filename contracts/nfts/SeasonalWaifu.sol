@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: unlicensed
+// SPDX-License-Identifier: UNLICENSED
 // @author Isekai Dev
 
 pragma solidity ^0.8.0 .0;
@@ -23,19 +23,25 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
     using Strings for uint256;
 
-    uint256 _mintnonce;
+    uint256 private _mintnonce;
+    uint256 private foildiscount;
     mapping(bytes32 => bool) private _pendingMints;
     uint256 public tokenPrice;
     string private baseURI;
     address private _oracleAddress;
-    ICrystalsToken private crystals;
-    bool autobuy;
+    ICrystalsToken private crystalsToken;
+    struct Referral {
+        uint256 referralMinimum;
+        uint256 referralPercentage;
+    }
+    Referral private referral;
 
+    // Dex stuff
+    bool private autobuy;
+    IERC20 private isekaiToken;
     IUniswapV2Router02 public uniswapRouter;
-    // Our DEX
-    address public isekaiAddress;
-    address private uniswapRouterAddress;
 
+    // For admin use
     mapping(address => bool) private _authorizedAddresses;
 
     // for oracle use
@@ -52,12 +58,12 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         uint256 nonce
     );
 
-    uint256 constant VARIETIES = 12;
-    uint256 constant ETH = 0;
-    uint256 constant CRYSTALS = 1;
-    uint256 foildiscount;
+    // Constants
+    uint256 private constant VARIETIES = 12;
+    uint256 private constant ETH = 0;
+    uint256 private constant CRYSTALS = 1;
 
-    uint256 royaltyPercentage;
+    uint256 public royaltyPercentage;
 
     string public name = "Isekai Legends Season";
     string public symbol = "ISEKAI";
@@ -65,18 +71,20 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
     constructor(
         uint256 _tokenPrice,
         string memory _baseURI,
-        address _crystals,
+        address _crystalsToken,
         address _uniswapRouterAddress,
         address _isekaiAddress,
         uint256 season
     ) ERC1155("") {
         tokenPrice = _tokenPrice; // Price MATIC wei
         baseURI = _baseURI;
-        crystals = ICrystalsToken(_crystals);
+        crystalsToken = ICrystalsToken(_crystalsToken);
+        isekaiToken = IERC20(_isekaiAddress);
         uniswapRouter = IUniswapV2Router02(_uniswapRouterAddress);
-        isekaiAddress = _isekaiAddress;
-        foildiscount = 0;
-        royaltyPercentage = 5;
+        foildiscount = 500;
+        royaltyPercentage = 500;
+        referral.referralMinimum = 420000 ether;
+        referral.referralPercentage = 500;
         // Returns Isekai Legends Season 0
         // and that will be the name displayed on block explorer
         name = string(abi.encodePacked(name, " ", season.toString()));
@@ -91,7 +99,6 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         _;
     }
 
-    
     /** Authorized addresses to pause
      */
     modifier onlyAuthorized() {
@@ -133,29 +140,86 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
      * @dev Requires the user to send an amount of MATIC equal to the current token price.
      * @dev Throws an error if the nonce has already been processed.
      */
-    function requestMint(bool foilpack) public payable whenNotPaused nonReentrant {
+    function requestMint(bool foilpack)
+        public
+        payable
+        whenNotPaused
+        nonReentrant
+    {
         uint256 price = tokenPrice;
         uint256 amount = 1;
         if (foilpack) {
-            price *= ((100 - foildiscount) / 100);
+            price *= ((10000 - foildiscount) / 1000);
             amount = 10;
         }
         require(msg.value == price, "Insufficient MATIC sent");
 
         emit MintRequest(msg.sender, _mintnonce, ETH, amount);
-        bytes32 index = keccak256(abi.encodePacked(msg.sender,_mintnonce));
+        bytes32 index = keccak256(abi.encodePacked(msg.sender, _mintnonce));
         _pendingMints[index] = true;
         _mintnonce++;
 
         if (autobuy) {
             address[] memory path = new address[](2);
             path[0] = uniswapRouter.WETH();
-            path[1] = isekaiAddress;
+            path[1] = address(isekaiToken);
             uniswapRouter.swapExactETHForTokens{value: msg.value}(
                 0, // Accept any amount of tokens
                 path,
                 address(owner()), // Recipient of the tokens
-                block.timestamp + 300 // Deadline (5 minutes)
+                block.timestamp
+            );
+        }
+    }
+
+    // Overloaded function with referral system and minimum token check
+    function requestMint(bool foilpack, address referrer)
+        public
+        payable
+        whenNotPaused
+        nonReentrant
+    {
+        uint256 price = tokenPrice;
+        uint256 amount = 1;
+        if (foilpack) {
+            price *= ((10000 - foildiscount) / 1000);
+            amount = 10;
+        }
+        require(msg.value == price, "Insufficient MATIC sent");
+
+        emit MintRequest(msg.sender, _mintnonce, ETH, amount);
+        bytes32 index = keccak256(abi.encodePacked(msg.sender, _mintnonce));
+        _pendingMints[index] = true;
+        _mintnonce++;
+
+        if (autobuy) {
+            uint256 referralAmount = 0;
+            uint256 swapAmount = msg.value;
+
+            address[] memory path = new address[](2);
+            path[0] = uniswapRouter.WETH();
+            path[1] = address(isekaiToken);
+
+            // Check if the referer has at least referralMinimum $Isekai tokens in their wallet
+            if (isekaiToken.balanceOf(referrer) >= referral.referralMinimum) {
+                referralAmount =
+                    (msg.value * referral.referralPercentage) /
+                    10000; // Calculate 5% of the amount for referral
+                swapAmount = msg.value - referralAmount; // Deduct referral amount from the swap amount
+
+                uniswapRouter.swapExactETHForTokens{value: referralAmount}(
+                    0,
+                    path,
+                    referrer, // Send the referral tokens to the referral address
+                    block.timestamp
+                );
+            }
+
+            uniswapRouter.swapExactETHForTokens{value: swapAmount}(
+                0,
+                path,
+                address(owner()),
+                block.timestamp
             );
         }
     }
@@ -182,17 +246,21 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
      * @dev Requires the user to burn amount X crystal. No approval required ;)
      * @dev Throws an error if the nonce has already been processed.
      */
-    function requestMintCrystals(uint256 amount) public whenNotPaused nonReentrant {
+    function requestMintCrystals(uint256 amount)
+        public
+        whenNotPaused
+        nonReentrant
+    {
         uint256 crystalprice = amount * (10**18); // lets burn whole tokens lol
         require(
-            crystals.balanceOf(msg.sender) >= crystalprice,
+            crystalsToken.balanceOf(msg.sender) >= crystalprice,
             "Not enough $CRYSTALS"
         );
-        
+
         bytes32 index = keccak256(abi.encodePacked(msg.sender, _mintnonce));
         _pendingMints[index] = true;
 
-        crystals.burn(msg.sender, crystalprice);
+        crystalsToken.burn(msg.sender, crystalprice);
 
         // We should tell our Oracle that we are using crystals
         // for better odds...
@@ -222,7 +290,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         uint256[] memory ids,
         uint256 nonce
     ) external onlyOracle {
-        bytes32 index = keccak256(abi.encodePacked(user,nonce));
+        bytes32 index = keccak256(abi.encodePacked(user, nonce));
         require(_pendingMints[index], "No pending request by this user");
         for (uint256 i = 0; i < ids.length; i++) {
             require(ids[i] < VARIETIES, "ID out of range");
@@ -232,11 +300,14 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         emit MintProcessed(user, ids, nonce);
     }
 
-    function requestExists(address user, uint256 nonce)  external view returns(bool) {
-        bytes32 index = keccak256(abi.encodePacked(user,nonce));
+    function requestExists(address user, uint256 nonce)
+        external
+        view
+        returns (bool)
+    {
+        bytes32 index = keccak256(abi.encodePacked(user, nonce));
         return _pendingMints[index];
     }
-
 
     /**
      * @dev Updates the price of the tokens.
@@ -244,6 +315,15 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
      */
     function updateTokenPrice(uint256 newPrice) public onlyOwner {
         tokenPrice = newPrice;
+    }
+
+    function updateReferralSystem(uint256 percentage, uint256 minimum)
+        public
+        onlyOwner
+    {
+        require(percentage <= 10000, "Must be less than 10k bp");
+        referral.referralPercentage = percentage;
+        referral.referralMinimum = minimum;
     }
 
     /**
@@ -275,14 +355,16 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         returns (address receiver, uint256 royaltyAmount)
     {
         receiver = address(owner());
-        royaltyAmount = salePrice * (royaltyPercentage / 100);
+        royaltyAmount = salePrice * (royaltyPercentage / 10000);
         return (receiver, royaltyAmount);
     }
 
+    // Basis points
     function setRoyaltyPercentage(uint256 percent) public onlyOwner {
         royaltyPercentage = percent;
     }
 
+    // Withdraw MATIC
     function withdrawOwner(address payable _to, uint256 _amount)
         public
         onlyOwner
@@ -290,11 +372,27 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         _to.transfer(_amount);
     }
 
-    function _beforeTokenTransfer(address operator, address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)
-        internal
-        whenNotPaused
-        override
-    {
+    // Withdraw ERC20 tokens
+    function withdrawOwner(
+        address _token,
+        address _to,
+        uint256 _amount
+    ) public onlyOwner {
+        require(_token != address(0) && _to != address(0), "Invalid address");
+        IERC20 token = IERC20(_token);
+        uint256 tokenBalance = token.balanceOf(address(this));
+        require(tokenBalance >= _amount, "Insufficient token balance");
+        token.transfer(_to, _amount);
+    }
+
+    function _beforeTokenTransfer(
+        address operator,
+        address from,
+        address to,
+        uint256[] memory ids,
+        uint256[] memory amounts,
+        bytes memory data
+    ) internal override whenNotPaused {
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
     }
 
