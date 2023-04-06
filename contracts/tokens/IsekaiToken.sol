@@ -14,6 +14,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * sent to a specified tax destination address.
  * The owner of the contract can update the tax percentage and tax destination,
  * and can exclude or include specific addresses from the tax calculation.
+ * Percentage in basis points
  */
 contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
     uint256 public taxPercentage;
@@ -23,11 +24,15 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
     constructor(
         string memory name,
         string memory symbol,
+        uint256 _initialsupply,
         uint256 _taxPercentage,
         address _taxDestination
     ) ERC20(name, symbol) {
+        require(_taxPercentage <= 10000, "IsekaiToken: tax percentage must be between 0 and 10000 (0-100%)");
         taxPercentage = _taxPercentage;
         taxDestination = _taxDestination;
+        // Mint the supply to the deployer wallet, mint ability is then burnt!
+        _mint(msg.sender, _initialsupply);
     }
 
     /**
@@ -35,6 +40,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
      * the tax calculation. If the sender and the recipient are not excluded from the tax,
      * the tax percentage is calculated and the tax amount is transferred to the
      * tax destination address. The remaining net amount is then transferred to the recipient.
+     * If both wallets are EOA's bypass the tax.
      */
     function _transfer(
         address sender,
@@ -56,7 +62,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
             !_excludedFromTax[recipient] &&
             (isSenderContract || isRecipientContract)
         ) {
-            taxAmount = (amount * taxPercentage) / 100;
+            taxAmount = (amount * taxPercentage) / 10000;
         }
         uint256 netAmount = amount - taxAmount;
 
@@ -78,20 +84,11 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Allows the contract owner to mint new tokens.
-     * @param to The address receiving the newly minted tokens.
-     * @param amount The number of tokens to mint.
-     */
-    function mint(address to, uint256 amount) public onlyOwner {
-        _mint(to, amount);
-    }
-
-    /**
      * @dev Updates the tax percentage. Only the owner of the contract can call this function.
      * @param newPercentage The new tax percentage to be set.
      */
     function updateTaxPercentage(uint256 newPercentage) public onlyOwner {
-        require(newPercentage < 100);
+        require(newPercentage < 10000);
         taxPercentage = newPercentage;
     }
 
