@@ -21,6 +21,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
     address private taxDestination;
     address private taxAdmin;
     mapping(address => bool) private _excludedFromTax;
+    mapping(address => bool) private _whitelistedLPs;
 
     constructor(
         string memory name,
@@ -28,7 +29,11 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
         uint256 _initialsupply,
         uint256 _taxPercentage
     ) ERC20(name, symbol) {
-        require(_taxPercentage <= 10000, "IsekaiToken: tax percentage must be between 0 and 10000 (0-100%)");
+        require(
+            _taxPercentage <= 10000,
+            "IsekaiToken: tax percentage must be between 0 and 10000 (0-100%)"
+        );
+        _excludedFromTax[msg.sender] = true;
         taxPercentage = _taxPercentage;
         taxDestination = msg.sender;
         taxAdmin = msg.sender;
@@ -37,10 +42,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
     }
 
     modifier onlyAdmin() {
-        require(
-            msg.sender == taxAdmin,
-            "Caller is not authorized"
-        );
+        require(msg.sender == taxAdmin, "Caller is not authorized");
         _;
     }
 
@@ -62,14 +64,16 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
         _beforeTokenTransfer(sender, recipient, amount);
 
         uint256 taxAmount = 0;
-        bool isSenderContract = _isContract(sender);
-        bool isRecipientContract = _isContract(recipient);
+//        bool isSenderContract = _isContract(sender);
+//        bool isRecipientContract = _isContract(recipient);
+        bool isSenderWhitelistedLP = _isWhitelistedLP(recipient);
 
         // charge tax when address is a contract AND neither address is excluded
         if (
             !_excludedFromTax[sender] &&
             !_excludedFromTax[recipient] &&
-            (isSenderContract || isRecipientContract)
+            !isSenderWhitelistedLP// &&
+//            (isSenderContract || isRecipientContract)
         ) {
             taxAmount = (amount * taxPercentage) / 10000;
         }
@@ -84,12 +88,24 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
     /**
      * @dev Checks if the address is a contract by examining the bytecode length.
      */
-    function _isContract(address addr) private view returns (bool) {
+ /*   function _isContract(address addr) private view returns (bool) {
         uint32 size;
         assembly {
             size := extcodesize(addr)
         }
         return (size > 0);
+    }
+*/
+    function _isWhitelistedLP(address addr) private view returns (bool) {
+        return _whitelistedLPs[addr];
+    }
+
+    function manageWhitelistedLP(address addr, bool addTrue) public onlyAdmin {
+        if (addTrue) {
+            _whitelistedLPs[addr] = true;
+        } else {
+            _whitelistedLPs[addr] = false;
+        }
     }
 
     /**
