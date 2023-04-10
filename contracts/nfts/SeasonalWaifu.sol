@@ -163,7 +163,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
             address[] memory path = new address[](2);
             path[0] = uniswapRouter.WETH();
             path[1] = address(isekaiToken);
-            uniswapRouter.swapExactETHForTokens{value: msg.value}(
+            uniswapRouter.swapExactETHForTokensSupportingFeeOnTransferTokens{value: msg.value}(
                 0, // Accept any amount of tokens
                 path,
                 address(owner()), // Recipient of the tokens
@@ -207,7 +207,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
                     10000; // Calculate 5% of the amount for referral
                 swapAmount = msg.value - referralAmount; // Deduct referral amount from the swap amount
 
-                uniswapRouter.swapExactETHForTokens{value: referralAmount}(
+                uniswapRouter.swapExactETHForTokensSupportingFeeOnTransferTokens{value: referralAmount}(
                     0,
                     path,
                     referrer, // Send the referral tokens to the referral address
@@ -215,7 +215,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
                 );
             }
 
-            uniswapRouter.swapExactETHForTokens{value: swapAmount}(
+            uniswapRouter.swapExactETHForTokensSupportingFeeOnTransferTokens{value: swapAmount}(
                 0,
                 path,
                 address(owner()),
@@ -413,6 +413,6 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         return super.isApprovedForAll(_address, _operator);
     }
 
-    // To receive swapExactETHForTokens refund
+    // To receive swapExactETHForTokensSupportingFeeOnTransferTokens refund
     receive() external payable { }
 }

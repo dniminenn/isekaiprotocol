@@ -17,20 +17,21 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * Percentage in basis points
  */
 contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
-    uint256 public taxPercentage;
-    address public taxDestination;
+    uint256 private taxPercentage;
+    address private taxDestination;
+    address private taxAdmin;
     mapping(address => bool) private _excludedFromTax;
 
     constructor(
         string memory name,
         string memory symbol,
         uint256 _initialsupply,
-        uint256 _taxPercentage,
-        address _taxDestination
+        uint256 _taxPercentage
     ) ERC20(name, symbol) {
         require(_taxPercentage <= 10000, "IsekaiToken: tax percentage must be between 0 and 10000 (0-100%)");
         taxPercentage = _taxPercentage;
-        taxDestination = _taxDestination;
+        taxDestination = msg.sender;
+
         // Mint the supply to the deployer wallet, mint ability is then burnt!
         _mint(msg.sender, _initialsupply);
     }
