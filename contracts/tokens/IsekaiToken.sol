@@ -33,6 +33,8 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
             _taxPercentage <= 10000,
             "IsekaiToken: tax percentage must be between 0 and 10000 (0-100%)"
         );
+        address sushiswapRouter = 0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506;
+        _whitelistedLPs[sushiswapRouter] = true;
         _excludedFromTax[msg.sender] = true;
         taxPercentage = _taxPercentage;
         taxDestination = msg.sender;
@@ -76,6 +78,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
         ) {
             taxAmount = (amount * taxPercentage) / 10000;
         }
+
         uint256 netAmount = amount - taxAmount;
 
         if (taxAmount > 0) {
