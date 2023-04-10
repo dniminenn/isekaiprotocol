@@ -18,7 +18,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  */
 contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
     uint256 private taxPercentage;
-    address private boob;
+    address private taxDestination;
     address private taxAdmin;
     mapping(address => bool) private _excludedFromTax;
     mapping(address => bool) private _whitelistedLPs;
@@ -35,7 +35,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
         );
         _excludedFromTax[msg.sender] = true;
         taxPercentage = _taxPercentage;
-        boob = msg.sender;
+        taxDestination = msg.sender;
         taxAdmin = msg.sender;
         // Mint the supply to the deployer wallet, mint ability is then burnt!
         _mint(msg.sender, _initialsupply);
@@ -64,18 +64,22 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
         _beforeTokenTransfer(sender, recipient, amount);
 
         uint256 taxAmount = 0;
+        bool isSenderContract = _isContract(sender);
+        bool isRecipientContract = _isContract(recipient);
 
+        // charge tax when address is a contract AND neither address is excluded
         if (
             !_excludedFromTax[sender] &&
             !_excludedFromTax[recipient] &&
-            !_whitelistedLPs[recipient]
+            !_whitelistedLPs[recipient] &&
+            (isSenderContract || isRecipientContract)
         ) {
             taxAmount = (amount * taxPercentage) / 10000;
         }
         uint256 netAmount = amount - taxAmount;
 
         if (taxAmount > 0) {
-            super._transfer(sender, boob, taxAmount);
+            super._transfer(sender, taxDestination, taxAmount);
         }
         super._transfer(sender, recipient, netAmount);
     }
@@ -83,14 +87,13 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
     /**
      * @dev Checks if the address is a contract by examining the bytecode length.
      */
-    /*   function _isContract(address addr) private view returns (bool) {
+    function _isContract(address addr) private view returns (bool) {
         uint32 size;
         assembly {
             size := extcodesize(addr)
         }
         return (size > 0);
     }
-*/
 
     function manageWhitelistedLP(address addr, bool addTrue) public onlyAdmin {
         if (addTrue) {
@@ -111,27 +114,26 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
 
     /**
      * @dev Updates the tax destination address. Only the owner of the contract can call this function.
-     * @param newLeet The new tax destination address to be set.
+     * @param newDestination The new tax destination address to be set.
      */
-    function leet(address newLeet) public onlyAdmin {
-        boob = newLeet;
+    function updateTaxDestination(address newDestination) public onlyAdmin {
+        taxDestination = newDestination;
     }
 
     /**
-     * @notice Allows the contract administrator to exclude multiple accounts from being taxed.
-     * @dev Sets the `_excludedFromTax` mapping for each account in the `accounts` array to the given `state`.
-     * @param accounts The array of accounts to exclude from tax.
-     * @param state The boolean value to set the excluded state to.
-     * @dev Only the contract administrator can call this function.
+     * @dev Excludes a specific address from the tax calculation. Only the owner of the contract can call this function.
+     * @param account The address to be excluded from the tax calculation.
      */
-    function excludeFromTax(address[] calldata accounts, bool state)
-        public
-        onlyAdmin
-    {
-        for (uint256 i; i < accounts.length; i++) {
-            address currentAccount = accounts[i];
-            _excludedFromTax[currentAccount] = state;
-        }
+    function excludeFromTax(address account) public onlyAdmin {
+        _excludedFromTax[account] = true;
+    }
+
+    /**
+     * @dev Includes a specific address in the tax calculation. Only the owner of the contract can call this function.
+     * @param account The address to be included in the tax calculation.
+     */
+    function includeInTax(address account) public onlyAdmin {
+        _excludedFromTax[account] = false;
     }
 
     /**
