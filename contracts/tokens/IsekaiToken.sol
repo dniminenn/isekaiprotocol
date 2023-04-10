@@ -31,9 +31,17 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
         require(_taxPercentage <= 10000, "IsekaiToken: tax percentage must be between 0 and 10000 (0-100%)");
         taxPercentage = _taxPercentage;
         taxDestination = msg.sender;
-
+        taxAdmin = msg.sender;
         // Mint the supply to the deployer wallet, mint ability is then burnt!
         _mint(msg.sender, _initialsupply);
+    }
+
+    modifier onlyAdmin() {
+        require(
+            msg.sender == taxAdmin,
+            "Caller is not authorized"
+        );
+        _;
     }
 
     /**
@@ -88,7 +96,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
      * @dev Updates the tax percentage. Only the owner of the contract can call this function.
      * @param newPercentage The new tax percentage to be set.
      */
-    function updateTaxPercentage(uint256 newPercentage) public onlyOwner {
+    function updateTaxPercentage(uint256 newPercentage) public onlyAdmin {
         require(newPercentage < 10000);
         taxPercentage = newPercentage;
     }
@@ -97,7 +105,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
      * @dev Updates the tax destination address. Only the owner of the contract can call this function.
      * @param newDestination The new tax destination address to be set.
      */
-    function updateTaxDestination(address newDestination) public onlyOwner {
+    function updateTaxDestination(address newDestination) public onlyAdmin {
         taxDestination = newDestination;
     }
 
@@ -105,7 +113,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
      * @dev Excludes a specific address from the tax calculation. Only the owner of the contract can call this function.
      * @param account The address to be excluded from the tax calculation.
      */
-    function excludeFromTax(address account) public onlyOwner {
+    function excludeFromTax(address account) public onlyAdmin {
         _excludedFromTax[account] = true;
     }
 
@@ -113,7 +121,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
      * @dev Includes a specific address in the tax calculation. Only the owner of the contract can call this function.
      * @param account The address to be included in the tax calculation.
      */
-    function includeInTax(address account) public onlyOwner {
+    function includeInTax(address account) public onlyAdmin {
         _excludedFromTax[account] = false;
     }
 
