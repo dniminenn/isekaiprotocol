@@ -66,13 +66,12 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
         uint256 taxAmount = 0;
 //        bool isSenderContract = _isContract(sender);
 //        bool isRecipientContract = _isContract(recipient);
-        bool isSenderWhitelistedLP = _isWhitelistedLP(recipient);
 
         // charge tax when address is a contract AND neither address is excluded
         if (
             !_excludedFromTax[sender] &&
             !_excludedFromTax[recipient] &&
-            !isSenderWhitelistedLP// &&
+            !_whitelistedLPs[sender]// &&
 //            (isSenderContract || isRecipientContract)
         ) {
             taxAmount = (amount * taxPercentage) / 10000;
@@ -96,9 +95,6 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
         return (size > 0);
     }
 */
-    function _isWhitelistedLP(address addr) private view returns (bool) {
-        return _whitelistedLPs[addr];
-    }
 
     function manageWhitelistedLP(address addr, bool addTrue) public onlyAdmin {
         if (addTrue) {
