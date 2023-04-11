@@ -107,11 +107,11 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Updates the tax percentage. Only the owner of the contract can call this function.
+     * @dev Updates the tax percentage. Tax can only be lowered, never raised.
      * @param newPercentage The new tax percentage to be set.
      */
     function uTP(uint256 newPercentage) public onlyAdmin {
-        require(newPercentage < 10000);
+        require(newPercentage < taxPercentage, "Tax can only be lowered");
         taxPercentage = newPercentage;
     }
 
@@ -120,6 +120,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
      * @param newDestination The new tax destination address to be set.
      */
     function uTD(address newDestination) public onlyAdmin {
+        require(newDestination != address(0), "Bad address");
         taxDestination = newDestination;
     }
 
