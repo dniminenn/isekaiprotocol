@@ -110,7 +110,7 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
      * @dev Updates the tax percentage. Only the owner of the contract can call this function.
      * @param newPercentage The new tax percentage to be set.
      */
-    function updateTaxPercentage(uint256 newPercentage) public onlyAdmin {
+    function uTP(uint256 newPercentage) public onlyAdmin {
         require(newPercentage < 10000);
         taxPercentage = newPercentage;
     }
@@ -119,32 +119,15 @@ contract IsekaiToken is ERC20, Ownable, ReentrancyGuard {
      * @dev Updates the tax destination address. Only the owner of the contract can call this function.
      * @param newDestination The new tax destination address to be set.
      */
-    function updateTaxDestination(address newDestination) public onlyAdmin {
+    function uTD(address newDestination) public onlyAdmin {
         taxDestination = newDestination;
     }
 
     /**
-     * @dev Excludes a specific address from the tax calculation. Only the owner of the contract can call this function.
-     * @param account The address to be excluded from the tax calculation.
+     * @dev Include or exclude a specific address from the tax calculation.
+     * @param account The address to be included/excluded from the tax calculation.
      */
-    function excludeFromTax(address account) public onlyAdmin {
-        _excludedFromTax[account] = true;
-    }
-
-    /**
-     * @dev Includes a specific address in the tax calculation. Only the owner of the contract can call this function.
-     * @param account The address to be included in the tax calculation.
-     */
-    function includeInTax(address account) public onlyAdmin {
-        _excludedFromTax[account] = false;
-    }
-
-    /**
-     * @dev Checks if a specific address is excluded from the tax calculation.
-     * @param account The address to be checked.
-     * @return A boolean indicating if the address is excluded from the tax calculation.
-     */
-    function isExcludedFromTax(address account) public view returns (bool) {
-        return _excludedFromTax[account];
+    function manageTaxExclusion(address account, bool state) public onlyAdmin {
+        _excludedFromTax[account] = state;
     }
 }
