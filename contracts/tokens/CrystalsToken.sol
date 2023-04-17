@@ -13,6 +13,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  */
 contract CrystalsToken is ERC20, Ownable {
     address public lpRewarder;
+    address private activeSeason;
 
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
@@ -22,6 +23,11 @@ contract CrystalsToken is ERC20, Ownable {
      */
     function setLPRewarder(address _lpRewarder) external onlyOwner {
         lpRewarder = _lpRewarder;
+    }
+
+    // This contract is allowed to burn waifus
+    function setActiveSeason(address _activeSeason) external onlyOwner {
+        activeSeason = _activeSeason;
     }
 
 
@@ -42,7 +48,7 @@ contract CrystalsToken is ERC20, Ownable {
      * @param amount The amount of tokens to burn.
      */
     function burn(address from, uint256 amount) external {
-        require(msg.sender == lpRewarder, "Only LPRewarder can burn");
+        require(msg.sender == activeSeason, "Only Waifu minters can burn");
         _burn(from, amount);
     }
 
