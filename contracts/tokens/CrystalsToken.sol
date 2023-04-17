@@ -21,7 +21,6 @@ contract CrystalsToken is ERC20, Ownable {
      * @param _lpRewarder The address of the LP Rewarder contract.
      */
     function setLPRewarder(address _lpRewarder) external onlyOwner {
-        require(lpRewarder == address(0), "LPRewarder address already set");
         lpRewarder = _lpRewarder;
     }
 
@@ -43,6 +42,7 @@ contract CrystalsToken is ERC20, Ownable {
      * @param amount The amount of tokens to burn.
      */
     function burn(address from, uint256 amount) external {
+        require(msg.sender == lpRewarder, "Only LPRewarder can burn");
         _burn(from, amount);
     }
 

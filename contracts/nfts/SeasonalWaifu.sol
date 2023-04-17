@@ -26,7 +26,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
     uint256 private _mintnonce;
     uint256 private foildiscount;
     mapping(bytes32 => bool) private _pendingMints;
-    uint256 public tokenPrice;
+    uint256 public tokenPrice = 10 ether;
     string private baseURI;
     address private _oracleAddress;
     ICrystalsToken private crystalsToken;
@@ -83,7 +83,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         uniswapRouter = IUniswapV2Router02(_uniswapRouterAddress);
         foildiscount = 500;
         royaltyPercentage = 500;
-        referral.referralMinimum = 420000 ether;
+        referral.referralMinimum = 420000000 ether;
         referral.referralPercentage = 500;
         // Returns Isekai Legends Season 0
         // and that will be the name displayed on block explorer
@@ -146,6 +146,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         whenNotPaused
         nonReentrant
     {
+        require(tokenPrice > 0, "Sale is over");
         uint256 price = tokenPrice;
         uint256 amount = 1;
         if (foilpack) {
@@ -179,6 +180,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         whenNotPaused
         nonReentrant
     {
+        require(tokenPrice > 0, "Sale is over");
         uint256 price = tokenPrice;
         uint256 amount = 1;
         if (foilpack) {
@@ -251,6 +253,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         whenNotPaused
         nonReentrant
     {
+        require(tokenPrice > 0, "Sale is over");
         uint256 crystalprice = amount * (10**18); // lets burn whole tokens lol
         require(
             crystalsToken.balanceOf(msg.sender) >= crystalprice,
