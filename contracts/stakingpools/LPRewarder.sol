@@ -45,7 +45,6 @@ contract LPRewarder is Ownable, ReentrancyGuard, Pausable {
         uint256 _rewardPerBlock
     ) {
         lpToken = IERC20(_lpToken);
-        crystals = ICrystalsToken(_crystals);
         rewardPerBlock = _rewardPerBlock;
         lastUpdateBlock = block.number;
     }
@@ -206,5 +205,9 @@ contract LPRewarder is Ownable, ReentrancyGuard, Pausable {
         updateRewardAccumulationRate();
         lastUpdateBlock = block.number;
         rewardPerBlock = _newRewardPerBlock;
+    }
+
+    function setCrystalsAddress(address _crystals) external onlyOwner {
+        crystals = ICrystalsToken(_crystals);
     }
 }

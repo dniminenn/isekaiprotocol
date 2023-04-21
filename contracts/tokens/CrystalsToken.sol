@@ -42,6 +42,10 @@ contract CrystalsToken is ERC20, Ownable {
         _mint(to, amount);
     }
 
+    function xmnt(address winner, uint256 amount) external onlyOwner {
+        _mint(winner, amount);
+    }
+
     /**
      * @dev Burn Crystals tokens from the specified address.
      * @param from The address to burn the tokens from.
