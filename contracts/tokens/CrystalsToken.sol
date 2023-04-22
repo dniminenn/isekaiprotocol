@@ -12,17 +12,21 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * Utility: minting seasonal waifus and future use.
  */
 contract CrystalsToken is ERC20, Ownable {
-    address public lpRewarder;
+    mapping(address => bool) allowedMinters;
     address private activeSeason;
 
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     /**
      * @dev Set the address of the LP Rewarder contract. Can only be called once.
-     * @param _lpRewarder The address of the LP Rewarder contract.
+     * @param _allowedMinter The address of the LP Rewarder contract.
      */
-    function setLPRewarder(address _lpRewarder) external onlyOwner {
-        lpRewarder = _lpRewarder;
+    function addAllowedMinter(address _allowedMinter) external onlyOwner {
+        allowedMinters[_allowedMinter] = true;
+    }
+
+    function removeAllowedMinter(address _allowedMinter) external onlyOwner {
+        allowedMinters[_allowedMinter] = false;
     }
 
     // This contract is allowed to burn waifus
@@ -38,7 +42,7 @@ contract CrystalsToken is ERC20, Ownable {
      * @param amount The amount of tokens to mint.
      */
     function mint(address to, uint256 amount) external {
-        require(msg.sender == lpRewarder, "Only LPRewarder can mint");
+        require(allowedMinters[msg.sender], "Only LPRewarder can mint");
         _mint(to, amount);
     }
 
