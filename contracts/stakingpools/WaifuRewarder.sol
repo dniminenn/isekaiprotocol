@@ -81,9 +81,7 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
         // subtract one block for buffer
         endBlock = (lastUpdateBlock + blocksToRun) - 1;
 
-        // Transfer initial token balance directly from the deployer to the contract
-        // isekai.transfer(address(this), initialTokenBalance);
-        // it looks like we must approve then send in the tokens
+        _pause();
     }
 
     /** Authorized addresses to pause
@@ -190,16 +188,17 @@ contract WaifuRewarder is Ownable, ReentrancyGuard, ERC1155Holder, Pausable {
      */
     function updateRewardAccumulationRate() internal {
         uint256 blocksSinceLastUpdate = block.number - lastUpdateBlock;
-        if (blocksSinceLastUpdate == 0 || totalStaked == 0) {
+        if (blocksSinceLastUpdate == 0) {
             return;
         }
         // Stop generating new rewards after the end block
         if (block.number >= endBlock) {
             blocksSinceLastUpdate = endBlock - lastUpdateBlock;
         }
-
-        uint256 newRewards = blocksSinceLastUpdate * rewardPerBlock;
-        rewardAccumulationRate += newRewards / totalStaked;
+        if (totalStaked > 0) {
+            uint256 newRewards = blocksSinceLastUpdate * rewardPerBlock;
+            rewardAccumulationRate += newRewards / totalStaked;
+        }
         lastUpdateBlock = block.number;
     }
 

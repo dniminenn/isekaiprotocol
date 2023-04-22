@@ -45,8 +45,10 @@ contract LPRewarder is Ownable, ReentrancyGuard, Pausable {
         uint256 _rewardPerBlock
     ) {
         lpToken = IERC20(_lpToken);
+        crystals = ICrystalsToken(_crystals);
         rewardPerBlock = _rewardPerBlock;
         lastUpdateBlock = block.number;
+        _pause();
     }
 
     /** Authorized addresses to pause
@@ -158,12 +160,17 @@ contract LPRewarder is Ownable, ReentrancyGuard, Pausable {
      */
     function updateRewardAccumulationRate() internal {
         uint256 blocksSinceLastUpdate = block.number - lastUpdateBlock;
-        if (blocksSinceLastUpdate == 0 || totalStaked == 0) {
+        if (blocksSinceLastUpdate == 0) {
             return;
         }
 
         uint256 newRewards = blocksSinceLastUpdate * rewardPerBlock;
-        rewardAccumulationRate += newRewards / totalStaked;
+
+        // Check if totalStaked is greater than 0 to avoid divide by zero error
+        if (totalStaked > 0) {
+            rewardAccumulationRate += newRewards / totalStaked;
+        }
+
         lastUpdateBlock = block.number;
     }
 
@@ -173,13 +180,34 @@ contract LPRewarder is Ownable, ReentrancyGuard, Pausable {
      * @return The amount of crystals pending for the user.
      */
     function getPendingReward(address userAddress)
-        public
+        internal
         view
         returns (uint256)
     {
         UserInfo storage user = userInfo[userAddress];
         uint256 accumulatedRewards = user.staked * rewardAccumulationRate;
         uint256 pendingReward = accumulatedRewards - user.rewardDebt;
+        return pendingReward;
+    }
+
+    function getUpdatedPendingReward(address userAddress)
+        public
+        view
+        returns (uint256)
+    {
+        UserInfo storage user = userInfo[userAddress];
+        uint256 currentRewardAccumulationRate = rewardAccumulationRate;
+        uint256 blocksSinceLastUpdate = block.number - lastUpdateBlock;
+
+        if (blocksSinceLastUpdate > 0 && totalStaked > 0) {
+            uint256 newRewards = blocksSinceLastUpdate * rewardPerBlock;
+            currentRewardAccumulationRate += newRewards / totalStaked;
+        }
+
+        uint256 accumulatedRewards = user.staked *
+            currentRewardAccumulationRate;
+        uint256 pendingReward = accumulatedRewards - user.rewardDebt;
+
         return pendingReward;
     }
 
