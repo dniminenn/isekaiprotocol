@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title Crystals
+ * @title Crystals 
  * @dev ERC20 token to reward LP farmers with seasonal waifus, untradable and unapprovable.
  * The only way to obtain it is through the LP Rewarder contract.
  * Utility: minting seasonal waifus and future use.

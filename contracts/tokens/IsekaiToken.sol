@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
- * @title IsekaiToken
+ * @title IsekaiToken 
  * @dev A custom ERC20 token that implements a tax on transfers.
  * The tax is calculated as a percentage of the transfer amount and
  * sent to a specified tax destination address.
