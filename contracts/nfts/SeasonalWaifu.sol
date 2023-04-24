@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "contracts/tokens/ICrystalsToken.sol";
 
 /**
@@ -30,16 +29,15 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
     string private baseURI;
     address private _oracleAddress;
     ICrystalsToken private crystalsToken;
+
     struct Referral {
         uint256 referralMinimum;
         uint256 referralPercentage;
     }
+
     Referral private referral;
 
-    // Dex stuff
-    bool private autobuy;
     IERC20 private isekaiToken;
-    IUniswapV2Router02 public uniswapRouter;
 
     // For admin use
     mapping(address => bool) private _authorizedAddresses;
@@ -49,7 +47,8 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         address indexed user,
         uint256 nonce,
         uint256 crystals,
-        uint256 amount
+        uint256 amount,
+        address referral
     );
     // to update user dapp and oracle
     event MintProcessed(
@@ -72,7 +71,6 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         uint256 _tokenPrice,
         string memory _baseURI,
         address _crystalsToken,
-        address _uniswapRouterAddress,
         address _isekaiAddress,
         uint256 season
     ) ERC1155("") {
@@ -80,7 +78,6 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         baseURI = _baseURI;
         crystalsToken = ICrystalsToken(_crystalsToken);
         isekaiToken = IERC20(_isekaiAddress);
-        uniswapRouter = IUniswapV2Router02(_uniswapRouterAddress);
         foildiscount = 500;
         royaltyPercentage = 500;
         referral.referralMinimum = 420000000 ether;
@@ -136,12 +133,11 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
     /**
      * @dev Allows a user to request a new token
      * @param foilpack Set true if user wants to buy a foilpack
-     * @param isekaiAmount Minimum amount of isekai (slippage, obtained from rpc)
      * Emits a `MintRequest` event indicating that a new token has been requested.
      * @dev Requires the user to send an amount of MATIC equal to the current token price.
      * @dev Throws an error if the nonce has already been processed.
      */
-    function requestMint(bool foilpack, uint256 isekaiAmount)
+    function requestMint(bool foilpack)
         public
         payable
         whenNotPaused
@@ -156,32 +152,21 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         }
         require(msg.value == price, "Insufficient MATIC sent");
 
-        emit MintRequest(msg.sender, _mintnonce, ETH, amount);
+        emit MintRequest(msg.sender, _mintnonce, ETH, amount, address(0));
         bytes32 index = keccak256(abi.encodePacked(msg.sender, _mintnonce));
         _pendingMints[index] = true;
         _mintnonce++;
-
-        if (autobuy) {
-            address[] memory path = new address[](2);
-            path[0] = uniswapRouter.WETH();
-            path[1] = address(isekaiToken);
-            uniswapRouter.swapExactETHForTokens{value: msg.value}(
-                isekaiAmount, // Supplied by dapp, includes slippage
-                path,
-                address(owner()), // Recipient of the tokens
-                block.timestamp
-            );
-        }
     }
 
     // Overloaded function with referral system and minimum token check
-    function requestMint(bool foilpack, address referrer, uint256 isekaiAmount)
+    function requestMint(bool foilpack, address referrer)
         public
         payable
         whenNotPaused
         nonReentrant
     {
         require(tokenPrice > 0, "Sale is over");
+        require(referrer != address(0), "Referrer cannot be null");
         uint256 price = tokenPrice;
         uint256 amount = 1;
         if (foilpack) {
@@ -190,63 +175,14 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         }
         require(msg.value == price, "Insufficient MATIC sent");
 
-        emit MintRequest(msg.sender, _mintnonce, ETH, amount);
+        if (isekaiToken.balanceOf(referrer) < referral.referralMinimum) {
+            referrer = address(0);
+        }
+
+        emit MintRequest(msg.sender, _mintnonce, ETH, amount, referrer);
         bytes32 index = keccak256(abi.encodePacked(msg.sender, _mintnonce));
         _pendingMints[index] = true;
         _mintnonce++;
-
-        if (autobuy) {
-            uint256 referralAmount = 0;
-            uint256 swapAmount = msg.value;
-            uint256 isekaiToProtocol = 0;
-            uint256 isekaiToRef = 0;
-
-            address[] memory path = new address[](2);
-            path[0] = uniswapRouter.WETH();
-            path[1] = address(isekaiToken);
-
-            // Check if the referer has at least referralMinimum $Isekai tokens in their wallet
-            if (isekaiToken.balanceOf(referrer) >= referral.referralMinimum) {
-                referralAmount =
-                    (msg.value * referral.referralPercentage) /
-                    10000; // Calculate 5% of the amount for referral
-                swapAmount = msg.value - referralAmount; // Deduct referral amount from the swap amount
-                isekaiToRef =
-                    (isekaiAmount * referral.referralPercentage) /
-                    10000;
-                isekaiToProtocol = isekaiAmount - isekaiToRef;
-
-                uniswapRouter.swapExactETHForTokens{value: referralAmount}(
-                    isekaiToRef, // slip protection
-                    path,
-                    referrer, // Send the referral tokens to the referral address
-                    block.timestamp
-                );
-            }
-
-            uniswapRouter.swapExactETHForTokens{value: swapAmount}(
-                isekaiToProtocol, // slip protection
-                path,
-                address(owner()),
-                block.timestamp
-            );
-        }
-    }
-
-    /**
-     * @dev Allow owner to disable autobuy functionality
-     * @param _autobuy true or false
-     */
-    function setAutoBuy(bool _autobuy) public onlyOwner {
-        autobuy = _autobuy;
-    }
-
-    /**
-     * @dev Allows owner to set new DEX for autobuy
-     * @param _router New router address
-     */
-    function setDEXRouter(address _router) public onlyOwner {
-        uniswapRouter = IUniswapV2Router02(_router);
     }
 
     /**
@@ -274,7 +210,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
 
         // We should tell our Oracle that we are using crystals
         // for better odds...
-        emit MintRequest(msg.sender, _mintnonce, CRYSTALS, amount);
+        emit MintRequest(msg.sender, _mintnonce, CRYSTALS, amount, address(0));
 
         _mintnonce++;
     }
@@ -423,6 +359,5 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         return super.isApprovedForAll(_address, _operator);
     }
 
-    // To receive swapExactETHForTokensSupportingFeeOnTransferTokens refund
-    receive() external payable { }
+    receive() external payable {}
 }
