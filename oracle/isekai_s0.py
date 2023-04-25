@@ -1,10 +1,9 @@
 """
 This script listens for new MintRequest events emitted by a smart contract and
 handles them by minting a new token for the user who made the request. The ID of
-the token to be minted is determined based on probabilities defined in the
-determine_token_id and determine_token_id_crystal functions. If any events were
-missed due to connection issues or downtime, the script processes them before
-continuing to listen for new events.
+the token to be minted is determined based on probabilities defined in the 
+determine_token_id_crystal functions. If any events were missed due to connection
+issues or downtime, the script processes them before continuing to listen for new events.
 
 Author: Isekai Dev
 """
@@ -30,26 +29,6 @@ def generate_random_number():
     return random.randint(0, 10000)
 
 
-def determine_token_id(random_number):
-    """
-    Determines the ID of the token to be minted based on probabilities.
-
-    Args:
-        random_number (int): A random number between 0 and 10000.
-
-    Returns:
-        int: The ID of the token to be minted.
-    """
-    probabilities = [4750, 4750, 500]
-    current_sum = 0
-
-    for i, probability in enumerate(probabilities):
-        current_sum += probability
-        if random_number < current_sum:
-            return i + 1
-    return 1
-
-
 def determine_token_id_crystal(random_number):
     """
     Determines the ID of the token to be minted based on probabilities.
@@ -63,7 +42,7 @@ def determine_token_id_crystal(random_number):
         int: The ID of the token to be minted.
     """
     # minting odds are determined here
-    probabilities = [0, 0, 0, 2333, 2333, 2333, 833, 833, 833, 249, 249, 4]
+    probabilities = [4750, 4750, 500]
     current_sum = 0
 
     for i, probability in enumerate(probabilities):
@@ -88,12 +67,8 @@ def handle_mint_request(event):
     amount = event["args"]["amount"]
     token_id_list = []
 
-    token_id_list = [
-        determine_token_id_crystal(generate_random_number())
-        if crystals == 1
-        else determine_token_id(generate_random_number())
-        for _ in range(amount)
-    ]
+    token_id_list = [determine_token_id_crystal(generate_random_number())
+                     for _ in range(amount)]
 
     txn = contract.functions.mint(user, token_id_list, nonce, b"").buildTransaction(
         {
