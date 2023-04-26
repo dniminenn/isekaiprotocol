@@ -1,4 +1,3 @@
-```rust
 use web3::{types::*, Web3, contract::{Contract, Options}};
 use tokio;
 use rand::{Rng, thread_rng};
