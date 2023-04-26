@@ -32,9 +32,10 @@ contract UniqueWaifu is
     // used by opensea contractURI() to populate collection overview
     string private _contractUrl =
         "https://assets.isekai.online/legends/IsekaiLegends.json";
-    uint256 private _amountClaim = 100000000000000000000;
+    uint256 public _amountClaim = 100000000000000000000;
 
     address private _oracleAddress;
+    address private _bridgeAddress;
     mapping(address => bool) private _authorizedAddresses;
 
     mapping(uint256 => bool) private _isLegendary;
@@ -68,6 +69,14 @@ contract UniqueWaifu is
         _;
     }
 
+    modifier onlyBridge() {
+        require(
+            msg.sender == _bridgeAddress,
+            "Only the vridge can call this function."
+        );
+        _;
+    }
+
     /** Authorized addresses to pause
      */
     modifier onlyAuthorized() {
@@ -94,6 +103,14 @@ contract UniqueWaifu is
      */
     function setOracleAddress(address oracle) public onlyOwner {
         _oracleAddress = oracle;
+    }
+
+    /**
+     * @dev Sets the address of the bridge that can call restricted functions.
+     * @param bridge The address of the bridge.
+     */
+    function setBridgeAddress(address bridge) public onlyOwner {
+        _bridgeAddress = bridge;
     }
 
     function addAuthorizedAddress(address newAddress) public onlyOwner {
@@ -129,7 +146,7 @@ contract UniqueWaifu is
         address _to,
         bool isLegendary,
         uint256 nonce
-    ) public onlyOracle {
+    ) public onlyOracle whenNotPaused {
         bytes32 index = keccak256(abi.encodePacked(_to, nonce));
         require(_pendingMints[index], "No pending request for user");
         _isLegendary[nonce] = isLegendary;
@@ -140,11 +157,18 @@ contract UniqueWaifu is
 
     /**
      * @dev Mints an arbitrary NFT, ID must not exist
-     * Supports traversal
      */
     function specialMint(address _to, uint256 id) public onlyOwner {
         _safeMint(_to, id);
     }
+
+    /**
+     * @dev Mints an arbitrary NFT, ID must not exist
+     */
+    function bridgeMint(address _to, uint256 id) public onlyBridge {
+        _safeMint(_to, id);
+    }
+
 
     // cash out
     function withdrawOwner(address payable _to, uint256 _amount)
@@ -158,6 +182,7 @@ contract UniqueWaifu is
      * @dev Allows a user to request the minting of a unique waifu NFT by paying the current mint price.
      */
     function requestMint() public payable nonReentrant whenNotPaused {
+        require(_amountClaim != 0, "Mint disabled");
         bytes32 index = keccak256(abi.encodePacked(msg.sender, _mintnonce));
         require(msg.value == _amountClaim, "Incorrect price");
         _pendingMints[index] = true;
@@ -165,8 +190,12 @@ contract UniqueWaifu is
         _mintnonce++;
     }
 
-    function requestExists(address user, uint256 nonce)  external view returns(bool) {
-        bytes32 index = keccak256(abi.encodePacked(user,nonce));
+    function requestExists(address user, uint256 nonce)
+        external
+        view
+        returns (bool)
+    {
+        bytes32 index = keccak256(abi.encodePacked(user, nonce));
         return _pendingMints[index];
     }
 

@@ -130,6 +130,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         _unpause();
     }
 
+
     /**
      * @dev Allows a user to request a new token
      * @param foilpack Set true if user wants to buy a foilpack

@@ -56,7 +56,7 @@ contract CrystalsToken is ERC20, Ownable {
      * @param amount The amount of tokens to burn.
      */
     function burn(address from, uint256 amount) external {
-        require(msg.sender == activeSeason, "Only Waifu minters can burn");
+        require(msg.sender == activeSeason, "Only seasons can burn");
         _burn(from, amount);
     }
 

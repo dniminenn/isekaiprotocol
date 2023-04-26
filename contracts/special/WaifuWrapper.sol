@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "contracts/nfts/IUniqueWaifu.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
@@ -20,9 +21,8 @@ import "@openzeppelin/contracts/security/Pausable.sol";
  * calculates the total value of the wrapped tokens using a multiplier based on
  * their rarity level. The contract can also wrap ERC721 tokens from a collection
  * defined at deploy time through the construction.
- * TODO: Assign two rarities to custom ERC721 - multipliers 1500 and 3000
  */
-contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausable {
+contract WaifuWrapper is ERC1155, ERC721Holder, ERC1155Holder, Ownable, ReentrancyGuard, Pausable {
     // Array of IERC1155 tokens representing the different seasons of tokens
     IERC1155[] private seasonWaifus;
 
@@ -46,18 +46,21 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
     // Mapping to store the owner of unique NFTs
     mapping(uint256 => address) private uniqueWaifuOwners;
 
+    string public name = "Party Power Levels";
+    string public symbol = "PWRLVL";
+
     /**
-     * @dev Constructor function that adds an initial season to the
-     * "seasonWaifus" array.
-     * @param _initialSeasonWaifu Address of the initial season token.
+     * @dev Constructor function
      */
-    constructor(address _initialSeasonWaifu, address _uniqueWaifu)
+     //constructor(address _initialSeasonWaifu, address _uniqueWaifu, uint256[] memory _initialSeasonMultipliers)
+    constructor()
         ERC1155("")
     {
         // 12 varieties
-        _seasonMultipliers.push([1, 1, 1, 5, 5, 5, 20, 20, 20, 100, 100, 1500]);
-        seasonWaifus.push(IERC1155(_initialSeasonWaifu));
-        uniqueWaifu = IUniqueWaifu(_uniqueWaifu);
+        //_seasonMultipliers.push([1, 1, 1, 5, 5, 5, 20, 20, 20, 100, 100, 1500]);
+        //seasonWaifus.push(IERC1155(_initialSeasonWaifu));
+        //uniqueWaifu = IUniqueWaifu(_uniqueWaifu);
+        _pause();
     }
 
     /** Authorized addresses to pause
@@ -78,6 +81,11 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
     function removeAuthorizedAddress(address addressToRemove) public onlyOwner {
         require(_authorizedAddresses[addressToRemove] == true, "Oops");
         _authorizedAddresses[addressToRemove] = false;
+    }
+
+    function setUniqueWaifu(address _waifu) public onlyOwner {
+        require(_waifu != address(0), "Cannot set 0 address");
+        uniqueWaifu = IUniqueWaifu(_waifu);
     }
 
     /** Emergency pause, can only be reset by multisig
@@ -112,11 +120,10 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
         uniqueWaifuOwners[tokenId] = msg.sender;
         uint256 totalWrapped;
         bool legend = uniqueWaifu.getLegendary(tokenId);
-        uint256 totalUnwrapped;
         if (!legend) {
-            totalUnwrapped = 1500; // 1500x multiplier for unique tokens
+            totalWrapped = 1500; // 1500x multiplier for unique tokens
         } else {
-            totalUnwrapped = 3000; // 3000x for legendary unique
+            totalWrapped = 3000; // 3000x for legendary unique
         }
         _mint(msg.sender, UNIQUE, totalWrapped, "");
         userUniqueStaked[msg.sender].push(tokenId);
@@ -253,7 +260,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
      * @dev Reverts if the token ID is invalid.
      */
     function getMultiplier(uint256 tokenId, uint256 season) internal view returns (uint256) {
-        return _seasonMultipliers[tokenId][season];
+        return _seasonMultipliers[season][tokenId];
     }
 
     /**
@@ -264,7 +271,7 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
      * @return amounts An array of the corresponding amounts of each wrapped NFT owned by the user.
      * @return uniqueTokenIds An array of the unique ERC721 token IDs staked by the user.
      */
-    function getuserWrappedWaifus(address user, uint256 season)
+    function getUserWrappedWaifus(address user, uint256 season)
         public
         view
         returns (
@@ -296,5 +303,9 @@ contract WaifuWrapper is ERC1155, ERC721Holder, Ownable, ReentrancyGuard, Pausab
         }
 
         return (_tokenIds, _amounts, _uniqueTokenIds);
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, ERC1155Receiver) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }
