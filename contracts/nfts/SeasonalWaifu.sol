@@ -168,6 +168,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
     {
         require(tokenPrice > 0, "Sale is over");
         require(referrer != address(0), "Referrer cannot be null");
+        require(
         uint256 price = tokenPrice;
         price *= ((10000 - referral.referralPercentage) / 10000);
         uint256 amount = 1;
@@ -200,7 +201,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
     {
         require(tokenPrice > 0, "Sale is over");
         uint256 crystalprice = amount * (10**18); // lets burn whole tokens lol
-        require(
+        require(isekaiToken.balanceOf(referrer) < referral.referralMinimum, "Invalid referral");
             crystalsToken.balanceOf(msg.sender) >= crystalprice,
             "Not enough $CRYSTALS"
         );
