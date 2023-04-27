@@ -81,7 +81,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         foildiscount = 500;
         royaltyPercentage = 500;
         referral.referralMinimum = 420000000 ether;
-        referral.referralPercentage = 500;
+        referral.referralPercentage = 200;
         // Returns Isekai Legends Season 0
         // and that will be the name displayed on block explorer
         name = string(abi.encodePacked(name, " ", season.toString()));
@@ -169,6 +169,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         require(tokenPrice > 0, "Sale is over");
         require(referrer != address(0), "Referrer cannot be null");
         uint256 price = tokenPrice;
+        price *= ((10000 - referral.referralPercentage) / 10000);
         uint256 amount = 1;
         if (foilpack) {
             price *= ((10000 - foildiscount) / 1000);
