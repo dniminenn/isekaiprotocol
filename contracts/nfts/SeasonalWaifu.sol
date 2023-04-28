@@ -37,6 +37,8 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
 
     Referral private referral;
 
+    string openseaURI;
+
     IERC20 private isekaiToken;
 
     // For admin use
@@ -72,10 +74,12 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         string memory _baseURI,
         address _crystalsToken,
         address _isekaiAddress,
+        string memory _contractURI,
         uint256 season
     ) ERC1155("") {
         tokenPrice = _tokenPrice; // Price MATIC wei
         baseURI = _baseURI;
+        openseaURI = _contractURI;
         crystalsToken = ICrystalsToken(_crystalsToken);
         isekaiToken = IERC20(_isekaiAddress);
         foildiscount = 500;
@@ -324,19 +328,6 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         _to.transfer(_amount);
     }
 
-    // Withdraw ERC20 tokens
-    function withdrawOwner(
-        address _token,
-        address _to,
-        uint256 _amount
-    ) public onlyOwner {
-        require(_token != address(0) && _to != address(0), "Invalid address");
-        IERC20 token = IERC20(_token);
-        uint256 tokenBalance = token.balanceOf(address(this));
-        require(tokenBalance >= _amount, "Insufficient token balance");
-        token.transfer(_to, _amount);
-    }
-
     function _beforeTokenTransfer(
         address operator,
         address from,
@@ -346,6 +337,10 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         bytes memory data
     ) internal override whenNotPaused {
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
+    }
+
+    function contractURI() public view returns (string memory) {
+        return openseaURI;
     }
 
     /**

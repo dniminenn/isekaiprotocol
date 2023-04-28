@@ -12,8 +12,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * Utility: minting seasonal waifus and future use.
  */
 contract CrystalsToken is ERC20, Ownable {
-    mapping(address => bool) allowedMinters;
-    address private activeSeason;
+    mapping(address => bool) private allowedMinters;
+    mapping(address => bool) private activeSeasons;
 
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
@@ -30,8 +30,8 @@ contract CrystalsToken is ERC20, Ownable {
     }
 
     // This contract is allowed to burn waifus
-    function setActiveSeason(address _activeSeason) external onlyOwner {
-        activeSeason = _activeSeason;
+    function setActiveSeason(address _activeSeason, bool active) external onlyOwner {
+        activeSeasons[_activeSeason] = active;
     }
 
 
@@ -56,7 +56,7 @@ contract CrystalsToken is ERC20, Ownable {
      * @param amount The amount of tokens to burn.
      */
     function burn(address from, uint256 amount) external {
-        require(msg.sender == activeSeason, "Only seasons can burn");
+        require(activeSeasons[msg.sender], "Only seasons can burn");
         _burn(from, amount);
     }
 
