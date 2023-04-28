@@ -24,7 +24,7 @@ contract IsekaiRewarder is Ownable, ReentrancyGuard, Pausable {
         uint256 staked;
         uint256 lastActionBlock;
         uint256 rewardDebt;
-        uint256 lastStakingBlock;
+        uint256 lastStakingTimestamp;
     }
 
     mapping(address => UserInfo) public userInfo;
@@ -33,11 +33,9 @@ contract IsekaiRewarder is Ownable, ReentrancyGuard, Pausable {
     uint256 public rewardAccumulationRate;
     uint256 public lastUpdateBlock;
 
-    uint256 public constant TIMELOCK_BLOCKS = 268800;
-
     modifier checkTimelock(address user) {
         require(
-            block.number - userInfo[user].lastStakingBlock >= TIMELOCK_BLOCKS,
+            block.timestamp - userInfo[user].lastStakingTimestamp >= 7 days,
             "Timelock: Unstaking not allowed until timelock period has passed"
         );
         _;
@@ -49,10 +47,7 @@ contract IsekaiRewarder is Ownable, ReentrancyGuard, Pausable {
      * @param _crystals Address of the Crystals token contract.
      * @param _rewardPerBlock Initial reward per block in wei units
      */
-    constructor(
-        address _crystals,
-        uint256 _rewardPerBlock
-    ) {
+    constructor(address _crystals, uint256 _rewardPerBlock) {
         isekaiToken = IERC20(0x449460B019eC80787660E665AAe42b920A33764F);
         crystals = ICrystalsToken(_crystals);
         rewardPerBlock = _rewardPerBlock;
@@ -110,6 +105,7 @@ contract IsekaiRewarder is Ownable, ReentrancyGuard, Pausable {
         user.staked += amount;
         totalStaked += amount;
         user.lastActionBlock = block.number;
+        user.lastStakingTimestamp = block.timestamp;
         user.rewardDebt = user.staked * rewardAccumulationRate;
     }
 
@@ -117,7 +113,12 @@ contract IsekaiRewarder is Ownable, ReentrancyGuard, Pausable {
      * @dev Allows a user to withdraw their staked Isekai tokens and claim any pending rewards.
      * @param amount Amount of Isekai tokens to withdraw.
      */
-    function withdraw(uint256 amount) external whenNotPaused nonReentrant checkTimelock(msg.sender) {
+    function withdraw(uint256 amount)
+        external
+        whenNotPaused
+        nonReentrant
+        checkTimelock(msg.sender)
+    {
         updateRewardAccumulationRate();
         UserInfo storage user = userInfo[msg.sender];
         require(user.staked >= amount, "Not enough staked tokens");
