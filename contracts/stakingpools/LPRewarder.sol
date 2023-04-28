@@ -35,16 +35,14 @@ contract LPRewarder is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev Initializes the contract with the given LP token and Crystals token addresses, and
      * the initial reward per block.
-     * @param _lpToken Address of the LP token contract.
      * @param _crystals Address of the Crystals token contract.
      * @param _rewardPerBlock Initial reward per block in wei units
      */
     constructor(
-        address _lpToken,
         address _crystals,
         uint256 _rewardPerBlock
     ) {
-        lpToken = IERC20(_lpToken);
+        lpToken = IERC20(0x47130c5227e478C393288295fC4d975580bD9CDf); // this is the sushi LP
         crystals = ICrystalsToken(_crystals);
         rewardPerBlock = _rewardPerBlock;
         lastUpdateBlock = block.number;

@@ -46,16 +46,14 @@ contract IsekaiRewarder is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev Initializes the contract with the given Isekai token and Crystals token addresses, and
      * the initial reward per block.
-     * @param _isekaiToken Address of the Isekai token contract.
      * @param _crystals Address of the Crystals token contract.
      * @param _rewardPerBlock Initial reward per block in wei units
      */
     constructor(
-        address _isekaiToken,
         address _crystals,
         uint256 _rewardPerBlock
     ) {
-        isekaiToken = IERC20(_isekaiToken);
+        isekaiToken = IERC20(0x449460B019eC80787660E665AAe42b920A33764F);
         crystals = ICrystalsToken(_crystals);
         rewardPerBlock = _rewardPerBlock;
         lastUpdateBlock = block.number;
