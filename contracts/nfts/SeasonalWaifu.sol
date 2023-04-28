@@ -80,7 +80,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         isekaiToken = IERC20(_isekaiAddress);
         foildiscount = 500;
         royaltyPercentage = 500;
-        referral.referralMinimum = 420000000 ether;
+        referral.referralMinimum = 42000000 ether;
         referral.referralPercentage = 200;
         // Returns Isekai Legends Season 0
         // and that will be the name displayed on block explorer
@@ -153,6 +153,9 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         }
         require(msg.value == price, "Insufficient MATIC sent");
 
+        address payable receiverAddress = payable(_oracleAddress);
+        receiverAddress.transfer(msg.value);
+
         emit MintRequest(msg.sender, _mintnonce, ETH, amount, address(0));
         bytes32 index = keccak256(abi.encodePacked(msg.sender, _mintnonce));
         _pendingMints[index] = true;
@@ -168,7 +171,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
     {
         require(tokenPrice > 0, "Sale is over");
         require(referrer != address(0), "Referrer cannot be null");
-        require(
+        require(isekaiToken.balanceOf(referrer) >= referral.referralMinimum, "Invalid referral");
         uint256 price = tokenPrice;
         price *= ((10000 - referral.referralPercentage) / 10000);
         uint256 amount = 1;
@@ -178,9 +181,9 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         }
         require(msg.value == price, "Insufficient MATIC sent");
 
-        if (isekaiToken.balanceOf(referrer) < referral.referralMinimum) {
-            referrer = address(0);
-        }
+        address payable receiverAddress = payable(_oracleAddress);
+        receiverAddress.transfer(msg.value);
+
 
         emit MintRequest(msg.sender, _mintnonce, ETH, amount, referrer);
         bytes32 index = keccak256(abi.encodePacked(msg.sender, _mintnonce));
@@ -201,8 +204,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
     {
         require(tokenPrice > 0, "Sale is over");
         uint256 crystalprice = amount * (10**18); // lets burn whole tokens lol
-        require(isekaiToken.balanceOf(referrer) < referral.referralMinimum, "Invalid referral");
-            crystalsToken.balanceOf(msg.sender) >= crystalprice,
+        require(crystalsToken.balanceOf(msg.sender) >= crystalprice,
             "Not enough $CRYSTALS"
         );
 
@@ -210,6 +212,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         _pendingMints[index] = true;
 
         crystalsToken.burn(msg.sender, crystalprice);
+
 
         // We should tell our Oracle that we are using crystals
         // for better odds...
@@ -270,7 +273,7 @@ contract SeasonalWaifu is ERC1155, Ownable, Pausable, ReentrancyGuard {
         public
         onlyOwner
     {
-        require(percentage <= 10000, "Must be less than 10k bp");
+        require(percentage <= 500, "Must be less than 500 bp");
         referral.referralPercentage = percentage;
         referral.referralMinimum = minimum;
     }
