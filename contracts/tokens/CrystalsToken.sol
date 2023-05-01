@@ -18,8 +18,8 @@ contract CrystalsToken is ERC20, Ownable {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     /**
-     * @dev Set the address of the LP Rewarder contract. Can only be called once.
-     * @param _allowedMinter The address of the LP Rewarder contract.
+     * @dev Set the address of the rewarder contracts.
+     * @param _allowedMinter The address of the rewarder contract.
      */
     function addAllowedMinter(address _allowedMinter) external onlyOwner {
         allowedMinters[_allowedMinter] = true;
@@ -37,12 +37,12 @@ contract CrystalsToken is ERC20, Ownable {
 
     /**
      * @dev Mint new Crystals tokens to the specified address. Can only
-     * be called by the LP Rewarder contract.
+     * be called by the rewarder contracts.
      * @param to The address to mint the new tokens to.
      * @param amount The amount of tokens to mint.
      */
     function mint(address to, uint256 amount) external {
-        require(allowedMinters[msg.sender], "Only LPRewarder can mint");
+        require(allowedMinters[msg.sender], "Not allowed to mint");
         _mint(to, amount);
     }
 

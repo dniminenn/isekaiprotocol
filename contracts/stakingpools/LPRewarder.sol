@@ -163,10 +163,9 @@ contract LPRewarder is Ownable, ReentrancyGuard, Pausable {
         }
 
         uint256 newRewards = blocksSinceLastUpdate * rewardPerBlock;
-
-        // Check if totalStaked is greater than 0 to avoid divide by zero error
+        uint256 newScaledRewards = newRewards * 1e18;
         if (totalStaked > 0) {
-            rewardAccumulationRate += newRewards / totalStaked;
+            rewardAccumulationRate += newScaledRewards / totalStaked;
         }
 
         lastUpdateBlock = block.number;
@@ -183,7 +182,8 @@ contract LPRewarder is Ownable, ReentrancyGuard, Pausable {
         returns (uint256)
     {
         UserInfo storage user = userInfo[userAddress];
-        uint256 accumulatedRewards = user.staked * rewardAccumulationRate;
+        uint256 accumulatedRewards = (user.staked * rewardAccumulationRate) /
+            1e18;
         uint256 pendingReward = accumulatedRewards - user.rewardDebt;
         return pendingReward;
     }
@@ -199,11 +199,12 @@ contract LPRewarder is Ownable, ReentrancyGuard, Pausable {
 
         if (blocksSinceLastUpdate > 0 && totalStaked > 0) {
             uint256 newRewards = blocksSinceLastUpdate * rewardPerBlock;
-            currentRewardAccumulationRate += newRewards / totalStaked;
+            uint256 newScaledRewards = newRewards * 1e18;
+            currentRewardAccumulationRate += newScaledRewards / totalStaked;
         }
 
-        uint256 accumulatedRewards = user.staked *
-            currentRewardAccumulationRate;
+        uint256 accumulatedRewards = (user.staked *
+            currentRewardAccumulationRate) / 1e18;
         uint256 pendingReward = accumulatedRewards - user.rewardDebt;
 
         return pendingReward;
